@@ -107,7 +107,8 @@ public:
   bool enable_division;
 
   /// Pre-configured constants to include in the expression set.
-  std::set<constant_exprt> literals;
+  std::set<exprt> literals;
+
 
 protected:
   bool setup_done;
@@ -129,7 +130,14 @@ class synth_encodingt : public synth_encoding_baset
 
   solutiont get_solution(const decision_proceduret &) const override;
 
+
   void clear() override;
+
+  /// Pre-configured constants to include in the expression set.
+  std::set<exprt> literals;
+  std::vector<std::vector<exprt>> get_selector_variables();
+  std::vector<exprt> get_constant_variables();
+
 
 protected:
   std::map<symbol_exprt, e_datat> e_data_map;

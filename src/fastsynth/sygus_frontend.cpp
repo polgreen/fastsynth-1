@@ -82,6 +82,7 @@ int sygus_frontend(const cmdlinet &cmdline)
     cegis.min_program_size=1; // default
 
   cegis.incremental_solving=cmdline.isset("incremental");
+  cegis.enumerative_engine=cmdline.isset("enumerative-solver");
   cegis.use_simp_solver=cmdline.isset("simplifying-solver");
   cegis.use_fm=cmdline.isset("fm");
   cegis.use_local_search=cmdline.isset("local-search");
