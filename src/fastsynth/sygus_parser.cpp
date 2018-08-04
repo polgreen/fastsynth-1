@@ -1103,6 +1103,7 @@ typet sygus_parsert::sort()
     if(smt2_tokenizer.next_token()!=smt2_tokenizert::SYMBOL)
       throw error("expected symbol after '(' in a sort");
 
+
     if(smt2_tokenizer.get_buffer()=="_")
     {
       // SyGuS-IF v2.0 now matches smt-lib syntax
