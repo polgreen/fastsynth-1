@@ -31,10 +31,14 @@
   "(enable-division)"                                                         \
   "(generate-N-programs):" \
    "(program-size):" \
+   "(enumerative-solver)" \
    "(number-of-constants):" \
    "(seed):" \
+   "(neural-network)" \
    "(generate-N-programs-old):" \
    "(number-of-params):" \
+    "(beam-size):" \
+
 
 /// File ending of Siemens STL source files. Used to determine the language
 /// frontend that shall be used.
@@ -162,3 +166,4 @@ int main(int argc, const char *argv[])
     std::cerr << "Error: " << s << '\n';
   }
 }
+
