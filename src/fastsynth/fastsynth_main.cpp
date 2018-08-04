@@ -7,6 +7,7 @@
 \*******************************************************************/
 
 #include "c_frontend.h"
+#include "program_generator_frontend.h"
 #include "smt2_frontend.h"
 #include "statement_list_frontend.h"
 #include "sygus_frontend.h"
@@ -27,7 +28,13 @@
   "(verbosity):"                                                               \
   "(smt)"                                                                      \
   "(literals)"                                                                 \
-  "(enable-division)"
+  "(enable-division)"                                                         \
+  "(generate-N-programs):" \
+   "(program-size):" \
+   "(number-of-constants):" \
+   "(seed):" \
+   "(generate-N-programs-old):" \
+   "(number-of-params):" \
 
 /// File ending of Siemens STL source files. Used to determine the language
 /// frontend that shall be used.
@@ -40,6 +47,7 @@
 /// File ending of Sygus files. Used to determine the language frontend that
 /// shall be used.
 #define SYGUS_FILE_ENDING ".sl"
+
 
 
 
@@ -104,7 +112,14 @@ int main(int argc, const char *argv[])
     return 1;
   }
 
-  if(cmdline.args.size() != 1)
+
+  if(cmdline.isset("generate-N-programs"))
+  {
+    assemble_program(cmdline);
+    return 0;
+  }
+
+  if(cmdline.args.size()!=1)
   {
     std::cerr << "Usage error, file must be given\n";
     help(std::cerr);
@@ -112,9 +127,18 @@ int main(int argc, const char *argv[])
   }
 
 
-  if(cmdline.isset("help") || cmdline.isset("h") || cmdline.isset("?"))
+
+  if(cmdline.isset("generate-N-programs-old"))
   {
-    help(std::cout);
+    if(has_suffix(cmdline.args.back(), ".sl"))
+    {
+      std::cout<<"Generating random programs \n";
+      generate_programs(cmdline, std::stol(
+          cmdline.get_value("generate-N-programs-old")));
+      return 0;
+      }
+     else
+      std::cerr<<"Error: generate programs must be given .sl file\n";
     return 1;
   }
 
