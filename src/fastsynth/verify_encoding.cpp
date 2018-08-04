@@ -1,8 +1,7 @@
 #include "verify_encoding.h"
 
 #include <util/arith_tools.h>
-
-//#include <langapi/language_util.h>
+#include <langapi/language_util.h>
 
 void verify_encodingt::check_function_bodies(
   const functionst &functions)
@@ -78,7 +77,7 @@ exprt verify_encodingt::operator()(const exprt &expr) const
 
     #if 0
     auto f_it=functions.find(e.function());
-    
+
     exprt result=f_it==functions.end()?
       from_integer(0, e.type()):f_it->second;
     #endif
