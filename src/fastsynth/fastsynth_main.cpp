@@ -38,6 +38,7 @@
    "(generate-N-programs-old):" \
    "(number-of-params):" \
     "(beam-size):" \
+    "(help)" \
 
 
 /// File ending of Siemens STL source files. Used to determine the language
@@ -51,8 +52,6 @@
 /// File ending of Sygus files. Used to determine the language frontend that
 /// shall be used.
 #define SYGUS_FILE_ENDING ".sl"
-
-
 
 
 
