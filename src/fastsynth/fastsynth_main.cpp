@@ -1,10 +1,12 @@
 /*******************************************************************\
 
+<<<<<<< HEAD
  Module: Fastsynth Main Module
 
  Author: Daniel Kroening, kroening@kroening.com
 
 \*******************************************************************/
+
 
 #include "c_frontend.h"
 #include "program_generator_frontend.h"
@@ -14,7 +16,6 @@
 
 #include <util/cmdline.h>
 #include <util/suffix.h>
-
 #include <iostream>
 
 #define FASTSYNTH_OPTIONS                                                      \
@@ -38,8 +39,8 @@
    "(neural-network)" \
    "(generate-N-programs-old):" \
    "(number-of-params):" \
-    "(beam-size):" \
-    "(help)" \
+   "(beam-size):" \
+   "(help)" \
 
 
 /// File ending of Siemens STL source files. Used to determine the language
@@ -56,6 +57,7 @@
 
 
 
+
 void help(std::ostream &out)
 {
   // clang-format off
@@ -63,7 +65,7 @@ void help(std::ostream &out)
      "\n"
      "* *                       Fastsynth                          * *\n "
      "* *         CounterExample Guided Inductive Synthesis        * *\n ";
-   out  <<
+  out  <<
      "* *              Daniel Kroening, Pascal Kesseli             * *\n"
      "* *           Elizabeth Polgreen, Cristina David             * *\n"
      "* *      Oxford University, Computer Science Department      * *\n"
@@ -101,11 +103,10 @@ void help(std::ostream &out)
      "--program-size N                   size of programs to be generated\n"
      "--number-params N                  number of arguments accepted by the programs to be generated\n"// NOLINT(*)
      "--number-of-constants N            max number of constants per program\n"// NOLINT(*)
-     "--bool-return                      generate programs that return a boolean\n\n";// NOLINT(*)
-    // clang-format on
+     "--bool-return                      generate programs that return a boolean\n"// NOLINT(*)
+     "--use-mult-and-divide              generate programs that include multiplication and division \n";// NOLINT(*)
+  // clang-format on
 }
-
-
 
 int main(int argc, const char *argv[])
 {
@@ -124,7 +125,7 @@ int main(int argc, const char *argv[])
     return 0;
   }
 
-  if(cmdline.args.size()!=1)
+  if(cmdline.args.size() != 1)
   {
     std::cerr << "Usage error, file must be given\n";
     help(std::cerr);
@@ -132,18 +133,21 @@ int main(int argc, const char *argv[])
   }
 
 
+  if(cmdline.isset("help") || cmdline.isset("h") || cmdline.isset("?"))
+    help(std::cout);
+
 
   if(cmdline.isset("generate-N-programs-old"))
   {
     if(has_suffix(cmdline.args.back(), ".sl"))
     {
-      std::cout<<"Generating random programs \n";
-      generate_programs(cmdline, std::stol(
-          cmdline.get_value("generate-N-programs-old")));
+      std::cout << "Generating random programs \n";
+      generate_programs(
+        cmdline, std::stol(cmdline.get_value("generate-N-programs-old")));
       return 0;
-      }
-     else
-      std::cerr<<"Error: generate programs must be given .sl file\n";
+    }
+    else
+      std::cerr << "Error: generate programs must be given .sl file\n";
     return 1;
   }
 
@@ -167,4 +171,3 @@ int main(int argc, const char *argv[])
     std::cerr << "Error: " << s << '\n';
   }
 }
-
