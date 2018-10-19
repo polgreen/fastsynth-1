@@ -951,7 +951,7 @@ void sygus_parsert::generate_invariant_constraints()
   function_application_exprt trans_f =
     apply_function_to_variables(TRANS, UNPRIMED);
 
-  //post-condition function application
+  // post-condition function application
   function_application_exprt post_f =
     apply_function_to_variables(POST, UNPRIMED);
 
