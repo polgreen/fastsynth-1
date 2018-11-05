@@ -81,7 +81,7 @@ decision_proceduret::resultt cegist::operator()(
 
   verifier->use_smt=use_smt;
   verifier->logic=logic;
-
+ 
   return loop(problem, *learner, *verifier);
 }
 
@@ -100,8 +100,12 @@ decision_proceduret::resultt cegist::loop(
   unsigned iteration=0;
 
 
+
   std::size_t program_size=min_program_size;
-  std::vector<counterexamplet> counterexamples;
+
+  std::size_t program_size=1;
+ // std::vector<counterexamplet> counterexamples;
+
 
   // now enter the CEGIS loop
   while(true)
@@ -167,8 +171,8 @@ decision_proceduret::resultt cegist::loop(
     case decision_proceduret::resultt::D_SATISFIABLE: // counterexample
       status() << "** Verification failed" << eom;
 
-      if(neural_network)
-        counterexamples.push_back(verify.get_counterexample());
+  //    if(neural_network)
+   //     counterexamples.push_back(verify.get_counterexample());
       learn.add_ce(verify.get_counterexample());
       if(use_local_search)
       {
