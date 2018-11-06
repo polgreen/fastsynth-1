@@ -343,6 +343,7 @@ exprt sygus_parsert::expression()
         throw error() << "unknown symbol `" << smt2_tokenizer.get_buffer() << '\'';
     }
 
+
   case smt2_tokenizert::NUMERAL:
     {
       const auto &buffer = smt2_tokenizer.get_buffer();
