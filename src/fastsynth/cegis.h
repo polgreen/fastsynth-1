@@ -23,6 +23,8 @@ public:
     max_iterations(0),
     beam_size(1u),
     enumerative_engine(false),
+    neural_network(false),
+    simple_nn(false),
     incremental_solving(false),
     use_simp_solver(false),
     use_local_search(false),
@@ -47,6 +49,7 @@ public:
   std::size_t beam_size;
   bool enumerative_engine;
   bool neural_network;
+  bool simple_nn; // simple NN
   bool incremental_solving;
   bool use_simp_solver;
   bool use_local_search;
