@@ -648,8 +648,10 @@ exprt sygus_parsert::expression()
     else
       throw error("expected symbol after '(' in an expression");
 
+
   case smt2_tokenizert::END_OF_FILE:
     throw error("EOF in an expression");
+
 
   case smt2_tokenizert::NONE:
   case smt2_tokenizert::STRING_LITERAL:
