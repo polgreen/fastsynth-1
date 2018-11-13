@@ -49,6 +49,7 @@ public:
   };
 
   exprt::operandst constraints;
+  exprt::operandst output_generator_constraints;
   std::string logic, action;
 
   std::set<irep_idt> synth_fun_set;

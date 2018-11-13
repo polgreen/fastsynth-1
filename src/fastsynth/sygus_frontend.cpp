@@ -111,6 +111,7 @@ int sygus_frontend(const cmdlinet &cmdline)
   problemt problem;
   problem.constraints=parser.constraints;
 
+
   for(const auto &v : parser.variable_map)
     problem.free_variables.insert(symbol_exprt(v.first, v.second));
 
@@ -124,7 +125,15 @@ int sygus_frontend(const cmdlinet &cmdline)
   {
     for(const auto &f : parser.synth_fun_set)
       problem.synth_fun_set[f] = parser.function_map[f].type;
+
+    problem.output_generator_constraints=
+    		parser.output_generator_constraints;
+
+    for(auto &c : problem.output_generator_constraints)
+      parser.expand_function_applications(c);
   }
+
+
 
   if(cmdline.isset("literals"))
     add_literals(problem);
