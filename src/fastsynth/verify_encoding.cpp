@@ -63,7 +63,8 @@ void verify_encodingt::check_function_body(
   }
 }
 
-exprt verify_encodingt::operator()(const exprt &expr) const
+
+exprt verify_encodingt::operator()(const exprt &expr)
 {
   if(expr.id()==ID_function_application)
   {
@@ -93,6 +94,8 @@ exprt verify_encodingt::operator()(const exprt &expr) const
 
     // need to instantiate parameters with arguments
     exprt instance=instantiate(result, e);
+
+    f_apps[e]=instance;
 
     return instance;
   }
@@ -161,6 +164,12 @@ counterexamplet verify_encodingt::get_counterexample(
       result.assignment[var] = from_integer(0, var.type());
       std::cout<<"Assume has been simplified out by solver.\n" <<std::endl;
     }
+  }
+
+  // iterate over function applications
+  for(const auto &app : f_apps)
+  {
+    result.f_apps[app.first] = solver.get(app.second);
   }
 
   return result;

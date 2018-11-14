@@ -45,7 +45,12 @@ class counterexamplet
 {
 public:
   std::map<exprt, exprt> assignment;
-  void clear() { assignment.clear(); }
+
+  // function applications
+  using f_appst=std::map<function_application_exprt, exprt>;
+  f_appst f_apps;
+
+  void clear() { assignment.clear(); f_apps.clear(); }
 };
 
 #endif /* CPROVER_FASTSYNTH_CEGIS_TYPES_H_ */

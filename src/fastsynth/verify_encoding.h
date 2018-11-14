@@ -14,7 +14,13 @@
 class verify_encodingt: public verify_encoding_baset
 {
 public:
-  exprt operator()(const exprt &) const override;
+
+  exprt operator()(const exprt &);
+
+  std::map<symbol_exprt, exprt> functions;
+  std::set<exprt> free_variables;
+
+  std::map<function_application_exprt, exprt> f_apps;
 
   counterexamplet get_counterexample(
     const decision_proceduret &) const override;
