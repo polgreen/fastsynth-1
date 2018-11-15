@@ -406,7 +406,13 @@ exprt sygus_parsert::expression()
       {
         not_exprt result;
         result.operands()=op;
-        return std::move(result);
+
+        if(result.op0().type().id()!=ID_bool)
+        {
+          error()<<"not must have boolean operand" <<eom;
+          return nil_exprt();
+        }
+        return result;
       }
       else if(id=="=")
       {
