@@ -344,6 +344,7 @@ exprt sygus_parsert::expression()
     }
 
 
+
   case smt2_tokenizert::NUMERAL:
     {
       const auto &buffer = smt2_tokenizer.get_buffer();
@@ -410,6 +411,11 @@ exprt sygus_parsert::expression()
         if(result.op0().type().id()!=ID_bool)
         {
           error()<<"not must have boolean operand" <<eom;
+          return nil_exprt();
+        }
+        if(op.size()!=1)
+        {
+          error()<<"not must have a single operand" <<eom;
           return nil_exprt();
         }
         return result;
