@@ -726,37 +726,32 @@ void sygus_parsert::command(const std::string &c)
     auto signature=function_signature();
     exprt body=expression();
 
+
+
+
     // check type of body
-    if(signature.type.id() == ID_mathematical_function)
+    if(signature.id() == ID_mathematical_function)
     {
-      const auto &f_signature = to_mathematical_function_type(signature.type);
+      const auto &f_signature = to_mathematical_function_type(signature);
       if(body.type() != f_signature.codomain())
       {
-        throw error()
-          << "type mismatch in function definition: expected `"
-          << f_signature.codomain().pretty() << "' but got `"
-          << body.type().pretty() << '\'';
+        error() << "type mismatch in function definition: expected `"
+                << f_signature.codomain().pretty() << "' but got `"
+                << body.type().pretty() << '\'' << eom;
+        return;
       }
     }
-    else if(body.type() != signature.type)
+    else if(body.type() != signature)
     {
-      throw error()
-        << "type mismatch in function definition: expected `"
-        << signature.type.pretty() << "' but got `"
-        << body.type().pretty() << '\'';
+      error() << "type mismatch in function definition: expected `"
+              << signature.pretty() << "' but got `"
+              << body.type().pretty() << '\'' << eom;
+      return;
     }
 
     auto &f=function_map[id];
-    f.type=signature.type;
-    f.parameter_ids=signature.parameter_ids;
+    f.type=signature;
     f.body=body;
-
-    if(f.type.codomain()==body.type())
-    {
-      error() << "return of function must match function signature" <<eom;
-      ignore_command();
-      return;
-    }
 
     local_variable_map.clear();
   }
