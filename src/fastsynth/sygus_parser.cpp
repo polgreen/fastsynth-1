@@ -750,6 +750,14 @@ void sygus_parsert::command(const std::string &c)
     f.type=signature.type;
     f.parameter_ids=signature.parameter_ids;
     f.body=body;
+
+    if(f.type.codomain()==body.type())
+    {
+      error() << "return of function must match function signature" <<eom;
+      ignore_command();
+      return;
+    }
+
     local_variable_map.clear();
   }
   else if(c=="set-logic")
