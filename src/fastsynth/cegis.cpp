@@ -114,6 +114,9 @@ decision_proceduret::resultt cegist::loop(
         old_functions.swap(solution.functions);
 
         solution=learn.get_solution();
+        error() << "solution functions:\n";
+        for(const auto f: solution.functions)
+          error()<<from_expr(f.second)<<eom;
 
         for(auto &f : solution.functions)
           f.second=simplify_expr(f.second, ns);
