@@ -545,10 +545,6 @@ exprt e_datat::get_function(
 #include <iostream>
 exprt synth_encodingt::operator()(const exprt &expr)
 {
-  if(expr.id()==ID_mathematical_function || expr.type().id()==ID_mathematical_function)
-  {
-    std::cout<<"mathematical function: "<< expr.pretty()<<std::endl;
-  }
   if(expr.id()==ID_function_application)
   {
     auto tmp=to_function_application_expr(expr);
