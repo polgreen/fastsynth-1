@@ -1,0 +1,7 @@
+(set-logic LIA)
+(define-fun myfun ((x Int) (y Int)) Int
+  (+ x y))
+(declare-const x Int)
+
+(assert (= (myfun x x)(+ x x )))
+(check-sat)

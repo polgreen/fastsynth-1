@@ -10,6 +10,7 @@
 #include <cctype>
 #include <cassert>
 #include <fstream>
+#include <iostream>
 
 
 void sygus_parsert::append_to_commands()
@@ -26,6 +27,17 @@ void sygus_parsert::append_to_commands()
     ignore_command();
   };
 
+  commands.erase("declare-fun");
+
+  commands["declare-fun"] = [this]() {
+    if(next_token() != smt2_tokenizert::SYMBOL)
+      throw error("expected a symbol after declare-fun");
+
+    irep_idt id = smt2_tokenizer.get_buffer();
+    auto type = function_signature_declaration();
+    free_variables.push_back(symbol_exprt(id, type));
+    add_unique_id(id, exprt(ID_nil, type));
+  };
 
   commands["declare-primed-var"] = [this] {
 
@@ -121,7 +133,9 @@ sygus_parsert::inv_function_signature()
     domain.push_back(sort());
     typet param_type=domain.back();
 
-    parameters.push_back(add_fresh_id(id, exprt(ID_nil, param_type)));
+   // parameters.push_back(id);
+    parameters.push_back(add_fresh_id(id, exprt(ID_nil, domain.back())));
+
     inv_arguments.push_back(symbol_exprt(id, param_type));
     inv_primed_arguments.push_back(symbol_exprt(id2string(id)+"!",param_type));
 
@@ -308,6 +322,7 @@ void sygus_parsert::expand_function_applications(exprt &expr)
     // look it up
     DATA_INVARIANT(app.function().id()==ID_symbol, "function must be symbol");
     irep_idt identifier=to_symbol_expr(app.function()).get_identifier();
+    std::cout<<"expanding function "<< id2string(identifier)<<std::endl;
     auto f_it=id_map.find(identifier);
 
     if(f_it!=id_map.end())

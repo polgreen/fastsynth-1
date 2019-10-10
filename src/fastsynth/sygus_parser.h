@@ -24,6 +24,8 @@ public:
   exprt::operandst constraints;
   std::string logic, action;
 
+  std::vector<exprt> free_variables;
+
   std::set<irep_idt> synth_fun_set;
 
   smt2_parsert::signature_with_parameter_idst inv_function_signature();

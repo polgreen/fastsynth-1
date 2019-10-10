@@ -20,6 +20,7 @@
 
 #include <fstream>
 #include <chrono>
+#include <iostream>
 
 int sygus_frontend(const cmdlinet &cmdline)
 {
@@ -93,14 +94,34 @@ int sygus_frontend(const cmdlinet &cmdline)
   problemt problem;
   problem.constraints=parser.constraints;
 
-  for(const auto &v : parser.id_map)
+  for(const auto &v : parser.free_variables)
+    problem.free_variables.insert(v);
+
+  for(const auto &v : parser.inv_arguments)
+    problem.free_variables.insert(v);
+
+  for(const auto &v : parser.inv_primed_arguments)
+    problem.free_variables.insert(v);
+
+
+  for(auto &c : problem.constraints)
   {
-    if(parser.synth_fun_set.find(v.first)==parser.synth_fun_set.end())
-        problem.free_variables.insert(symbol_exprt(v.first, v.second.type));
+   forall_operands(it, c)
+       if(it->id()==ID_mathematical_function)
+         std::cout<<"\npre expansion math function "<< it->pretty();
   }
+
 
   for(auto &c : problem.constraints)
     parser.expand_function_applications(c);
+
+  for(auto &c : problem.constraints)
+  {
+   forall_operands(it, c)
+       if(it->id()==ID_mathematical_function)
+         std::cout<<"\npost expansion math function "<< it->pretty();
+  }
+
 
   if(cmdline.isset("literals"))
     add_literals(problem);

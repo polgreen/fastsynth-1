@@ -1,7 +1,10 @@
-(set-logic LIA)
-(define-fun myfun ((x Int) (y Int)) Int
-  (+ x y))
-(declare-const x Int)
+(set-logic BV)
+(declare-fun uninterpretedfunc ((x(_ BitVec 32)) (y (_ BitVec 32))) (_ BitVec
+32))
 
-(assert (= (myfun x x)(+ x x )))
+(define-fun myfun ((x (_ BitVec 32)) (y (_ BitVec 32))) (_ BitVec 32)
+  (+ x y))
+(declare-const x (_ BitVec 32))
+
+(assert (= (myfun x x)(uninterpreted_func x x )))
 (check-sat)
