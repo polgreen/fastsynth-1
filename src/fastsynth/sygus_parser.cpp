@@ -27,16 +27,19 @@ void sygus_parsert::append_to_commands()
     ignore_command();
   };
 
-  commands.erase("declare-fun");
+  commands.erase("declare-var");
 
-  commands["declare-fun"] = [this]() {
+  commands["declare-var"] = [this]() {
+    const auto s = smt2_tokenizer.get_buffer();
+
     if(next_token() != smt2_tokenizert::SYMBOL)
-      throw error("expected a symbol after declare-fun");
+      throw error() << "expected a symbol after " << s;
 
     irep_idt id = smt2_tokenizer.get_buffer();
-    auto type = function_signature_declaration();
-    free_variables.push_back(symbol_exprt(id, type));
+    auto type = sort();
+
     add_unique_id(id, exprt(ID_nil, type));
+    free_variables.push_back(symbol_exprt(id, type));
   };
 
   commands["declare-primed-var"] = [this] {
@@ -61,6 +64,7 @@ void sygus_parsert::append_to_commands()
     if(smt2_tokenizer.next_token() != smt2_tokenizert::SYMBOL)
       throw error("expected a symbol after synth-fun");
 
+    local_id_map.clear();
     irep_idt id = smt2_tokenizer.get_buffer();
 
     auto signature = function_signature_definition();
@@ -70,11 +74,12 @@ void sygus_parsert::append_to_commands()
     add_unique_id(id, exprt(ID_nil, signature.type));
 
     synth_fun_set.insert(id);
+    local_id_map.clear();
 
   };
 
   commands["synth-inv"] = [this] {
-
+    local_id_map.clear();
     if(smt2_tokenizer.next_token() != smt2_tokenizert::SYMBOL)
       throw error("expected a symbol after synth-fun");
 
@@ -92,6 +97,7 @@ void sygus_parsert::append_to_commands()
     id_map.at(id).parameters = signature.parameters;
 
     synth_fun_set.insert(id);
+    local_id_map.clear();
   };
 
   commands["constraint"] = [this] {
@@ -134,7 +140,7 @@ sygus_parsert::inv_function_signature()
     typet param_type=domain.back();
 
    // parameters.push_back(id);
-    parameters.push_back(add_fresh_id(id, exprt(ID_nil, domain.back())));
+    parameters.push_back(add_fresh_local_id(id, exprt(ID_nil, domain.back())));
 
     inv_arguments.push_back(symbol_exprt(id, param_type));
     inv_primed_arguments.push_back(symbol_exprt(id2string(id)+"!",param_type));
