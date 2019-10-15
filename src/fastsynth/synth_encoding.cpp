@@ -9,6 +9,8 @@
 #include <iterator>
 #include <iostream>
 
+#define ARRAY_SIZE "5"
+
 typet promotion(const typet &t0, const typet &t1)
 {
   // same?
@@ -42,6 +44,9 @@ typet promotion(const typet &t0, const typet &t1)
 exprt promotion(const exprt &expr, const typet &t)
 {
   if(expr.type()==t)
+    return expr;
+  // don't promote arrays
+  if(expr.type().id()==ID_array || expr.type().id()==ID_index)
     return expr;
 
   return typecast_exprt(expr, t);
@@ -96,14 +101,13 @@ void e_datat::setup(
     instructions.push_back(instructiont(pc));
     array_instructions.push_back(instructiont(pc));
     auto &instruction=instructions[pc];
+    auto &array_instruction=array_instructions[pc];
 
     // constant -- hardwired default, not an option
     irep_idt const_val_id=id2string(identifier)+"_"+std::to_string(pc)+"_cval";
     instruction.constant_val=symbol_exprt(const_val_id, word_type);
 
-
-     auto &array_instruction=array_instructions[pc];
-
+    // we ignore the constant val for arrays
 
     // one of the arguments or constants
     for(std::size_t i = 0; i < arguments.size() + literals.size(); i++)
@@ -123,7 +127,7 @@ void e_datat::setup(
                                 std::to_string(pc) + "_p" + std::to_string(i) +
                                 "sel";
         auto &option = array_instruction.add_option(param_sel_id);
-        option.kind = instructiont::optiont::PARAMETER;
+        option.kind = instructiont::optiont::ARRAY_PARAMETER;
         option.parameter_number = i;
       }
     }
@@ -307,6 +311,15 @@ exprt e_datat::instructiont::constraint(
         result_expr=chain(option.sel, promoted_arg, result_expr);
       }
       break;
+    case optiont::ARRAY_PARAMETER:
+      {
+        result_expr=array_of_exprt(constant_exprt("0", bv_typet(32)),
+            array_typet(word_type, constant_exprt(ARRAY_SIZE, bv_typet(32))));
+        exprt promoted_arg=
+          promotion(arguments[option.parameter_number], word_type);
+        result_expr=chain(option.sel, promoted_arg, result_expr);
+      }
+      break;
 
     case optiont::UNARY:
       // TBD
@@ -443,6 +456,8 @@ exprt e_datat::result(const argumentst &arguments)
 
   std::vector<exprt> results, array_results;
   results.resize(instructions.size(), nil_exprt());
+  std::cout<<"ARRAY INSTRUCTIONS SIZE "<< array_instructions.size();
+
   array_results.resize(array_instructions.size(), nil_exprt());
   constraints.clear();
 
@@ -455,10 +470,12 @@ exprt e_datat::result(const argumentst &arguments)
     exprt c=instructions[pc].constraint(
         word_type, args_with_consts, results, array_results);
 
+
     if(pc<array_instructions.size())
     {
       exprt c_array=array_instructions[pc].constraint(
-          array_typet(word_type,exprt(ID_size)), args_with_consts, results, array_results);
+          array_typet(word_type, constant_exprt(ARRAY_SIZE, bv_typet(32)))
+          , args_with_consts, results, array_results);
       // results vary by instance
       irep_idt result_identifier=
         id2string(identifier)+"_inst"+std::to_string(instance_number)+
@@ -509,6 +526,7 @@ exprt e_datat::get_function(
       {
         switch(o_it->kind)
         {
+        case instructiont::optiont::ARRAY_PARAMETER:
         case instructiont::optiont::PARAMETER: // a parameter
           {
             const size_t num_params=parameter_types.size();
@@ -517,7 +535,8 @@ exprt e_datat::get_function(
               irep_idt p_identifier="synth::parameter"+
                        std::to_string(o_it->parameter_number);
               result=promotion(
-                symbol_exprt(p_identifier, parameter_types[o_it->parameter_number]),
+                symbol_exprt(p_identifier,
+                    parameter_types[o_it->parameter_number]),
                 word_type);
             }
             else // Constant
@@ -527,7 +546,6 @@ exprt e_datat::get_function(
             }
           }
           break;
-
         case instructiont::optiont::UNARY:
           // TBD
           break;
