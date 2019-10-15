@@ -79,7 +79,7 @@ void e_datat::setup(
   {
     parameter_types[i]=arguments[i].type();
     if(arguments[i].type().id()==ID_array)
-      has_array_operand=true;
+      has_array_operand++;
   }
 
   word_type=compute_word_type();
@@ -94,22 +94,47 @@ void e_datat::setup(
   for(std::size_t pc=0; pc<program_size; pc++)
   {
     instructions.push_back(instructiont(pc));
+    array_instructions.push_back(instructiont(pc));
     auto &instruction=instructions[pc];
 
     // constant -- hardwired default, not an option
     irep_idt const_val_id=id2string(identifier)+"_"+std::to_string(pc)+"_cval";
     instruction.constant_val=symbol_exprt(const_val_id, word_type);
 
-    // one of the arguments or constants
-    for(std::size_t i=0; i<arguments.size()+literals.size(); i++)
-    {
-      irep_idt param_sel_id=id2string(identifier)+"_"+
-               std::to_string(pc)+"_p"+std::to_string(i)+"sel";
-      auto &option=instruction.add_option(param_sel_id);
-      option.kind=instructiont::optiont::PARAMETER;
-      option.parameter_number=i;
 
+     auto &array_instruction=array_instructions[pc];
+
+
+    // one of the arguments or constants
+    for(std::size_t i = 0; i < arguments.size() + literals.size(); i++)
+    {
+      if(i > arguments.size() || arguments[i].type().id() != ID_array)
+      {
+        irep_idt param_sel_id = id2string(identifier) + "_" +
+                                std::to_string(pc) + "_p" + std::to_string(i) +
+                                "sel";
+        auto &option = instruction.add_option(param_sel_id);
+        option.kind = instructiont::optiont::PARAMETER;
+        option.parameter_number = i;
+      }
+      else if(i<arguments.size() && pc < arguments.size() && has_array_operand>0)
+      {
+        irep_idt param_sel_id = id2string(identifier) + "_" +
+                                std::to_string(pc) + "_p" + std::to_string(i) +
+                                "sel";
+        auto &option = array_instruction.add_option(param_sel_id);
+        option.kind = instructiont::optiont::PARAMETER;
+        option.parameter_number = i;
+      }
     }
+
+    // we only need array instructions for the each parameter that is an array
+    // We do not support operators that can be applied to arrays and produce
+    // arrays as output.
+
+    if(pc >= arguments.size() || has_array_operand==0)
+      array_instructions.pop_back();
+
 
     // a binary operation
 
@@ -137,7 +162,7 @@ void e_datat::setup(
           continue;
 
       // have we detected an array argument?
-      if(operation=="array_element" && !has_array_operand)
+      if(operation=="array_element" && has_array_operand==0)
         continue;
 
 
@@ -166,13 +191,10 @@ void e_datat::setup(
           }
 
           // array operators cam only be applied to arrays
-          if(operation=="array_element" && !operand_is_array[operand1])
+          if(operation=="array_element" && operand0>=array_instructions.size())
               continue;
-          if(operation!="array_element" && operand_is_array[operand1])
-            continue;
 
           irep_idt final_operation=operation;
-
 
           if(word_type.id()==ID_bool)
           {
@@ -268,7 +290,8 @@ if_exprt e_datat::instructiont::chain(
 exprt e_datat::instructiont::constraint(
   const typet &word_type,
   const std::vector<exprt> &arguments,
-  const std::vector<exprt> &results)
+  const std::vector<exprt> &results,
+  const std::vector<exprt> &array_results)
 {
   // constant, which is last resort
   exprt result_expr=constant_val;
@@ -309,14 +332,12 @@ exprt e_datat::instructiont::constraint(
         else if(option.operation=="array_element")
         {
           std::cout<<"ARRAY ELEMENT OP\n";
-          std::cout<<"OP0 "<< op0.pretty();
-          std::cout<<"OP1 "<< op1.pretty();
-          INVARIANT(op1.id()==ID_address_of &&
-              to_address_of_expr(op1).object().id()==ID_index, "");
-
-          index_exprt tmp=index_exprt(
-              to_index_expr(
-                  to_address_of_expr(op1).object()).array(), op0);
+          assert(option.operand0<array_results.size());
+          const auto &op0=array_results[option.operand0];
+          std::cout<<"op0 "<< op0.pretty()<<std::endl;
+          std::cout<<"op1 "<< op1.pretty()<<std::endl;
+          index_exprt tmp=index_exprt(op0, op1);
+          std::cout<<"index exprt "<< tmp.pretty();
           result_expr=chain(option.sel, tmp, result_expr);
 
         }
@@ -420,9 +441,9 @@ exprt e_datat::result(const argumentst &arguments)
   // find out which instance this is
   std::size_t instance_number=this->instance_number(arguments);
 
-  std::vector<exprt> results;
+  std::vector<exprt> results, array_results;
   results.resize(instructions.size(), nil_exprt());
-
+  array_results.resize(array_instructions.size(), nil_exprt());
   constraints.clear();
 
   const irep_idt &identifier=function_symbol.get_identifier();
@@ -431,7 +452,20 @@ exprt e_datat::result(const argumentst &arguments)
   {
     argumentst args_with_consts(arguments);
     copy(begin(literals), end(literals), back_inserter(args_with_consts));
-    exprt c=instructions[pc].constraint(word_type, args_with_consts, results);
+    exprt c=instructions[pc].constraint(
+        word_type, args_with_consts, results, array_results);
+
+    if(pc<array_instructions.size())
+    {
+      exprt c_array=array_instructions[pc].constraint(
+          array_typet(word_type,exprt(ID_size)), args_with_consts, results, array_results);
+      // results vary by instance
+      irep_idt result_identifier=
+        id2string(identifier)+"_inst"+std::to_string(instance_number)+
+        "_array_result_"+std::to_string(pc);
+      array_results[pc]=symbol_exprt(result_identifier, c_array.type());
+      constraints.push_back(equal_exprt(array_results[pc], c_array));
+    }
 
     // results vary by instance
     irep_idt result_identifier=
@@ -603,8 +637,13 @@ exprt synth_encodingt::operator()(const exprt &expr)
     e_datat &e_data=e_data_map[to_symbol_expr(tmp.function())];
     if(e_data.word_type.id().empty())
       e_data.literals=literals;
-    exprt final_result=e_data(
-        tmp, program_size, enable_bitwise, enable_division, has_array_operand, operand_is_array);
+    exprt final_result = e_data(
+      tmp,
+      program_size,
+      enable_bitwise,
+      enable_division,
+      has_array_operand,
+      operand_is_array);
 
     for(const auto &c : e_data.constraints)
       constraints.push_back(c);

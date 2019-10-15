@@ -15,7 +15,7 @@ public:
   e_datat():
   enable_bitwise(false),
   enable_division(false),
-  has_array_operand(false),
+  has_array_operand(0u),
   setup_done(false) { }
 
   exprt operator()(
@@ -23,7 +23,7 @@ public:
     const std::size_t program_size,
     bool enable_bitwise,
     bool enable_division,
-    bool _has_array_operand,
+    std::size_t _has_array_operand,
     std::vector<bool> array_operands)
   {
     has_array_operand=_has_array_operand;
@@ -76,7 +76,8 @@ public:
     exprt constraint(
       const typet &word_type,
       const std::vector<exprt> &arguments,
-      const std::vector<exprt> &results);
+      const std::vector<exprt> &results,
+      const std::vector<exprt> &array_results);
 
   protected:
     if_exprt chain(
@@ -86,6 +87,7 @@ public:
   };
 
   std::vector<instructiont> instructions;
+  std::vector<instructiont> array_instructions;
 
   // result of the function application
   // for a set of arguments
@@ -115,7 +117,7 @@ public:
 
   bool enable_bitwise;
   bool enable_division;
-  bool has_array_operand;
+  std::size_t has_array_operand;
   std::vector<bool> operand_is_array;
 
   /// Pre-configured constants to include in the expression set.
