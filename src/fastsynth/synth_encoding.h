@@ -12,14 +12,23 @@
 struct e_datat
 {
 public:
-  e_datat():enable_bitwise(false), enable_division(false), setup_done(false) { }
+  e_datat():
+  enable_bitwise(false),
+  enable_division(false),
+  has_array_operand(false),
+  setup_done(false) { }
 
   exprt operator()(
     const function_application_exprt &expr,
     const std::size_t program_size,
     bool enable_bitwise,
-    bool enable_division)
+    bool enable_division,
+    bool _has_array_operand,
+    std::vector<bool> array_operands)
   {
+    has_array_operand=_has_array_operand;
+    for(const auto &b : array_operands)
+      operand_is_array.push_back(b);
     setup(expr, program_size, enable_bitwise);
     return result(expr.arguments());
   }
@@ -83,6 +92,7 @@ public:
 
   symbol_exprt function_symbol = symbol_exprt::typeless(ID_empty_string);
   std::vector<typet> parameter_types;
+  std::vector<typet> instruction_types;
   typet return_type;
   typet word_type;
 
@@ -105,6 +115,8 @@ public:
 
   bool enable_bitwise;
   bool enable_division;
+  bool has_array_operand;
+  std::vector<bool> operand_is_array;
 
   /// Pre-configured constants to include in the expression set.
   std::set<constant_exprt> literals;

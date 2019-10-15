@@ -26,6 +26,7 @@
 #include <util/prefix.h>
 
 #include <iostream>
+#define ARRAY_SIZE 10
 
 /// Default logic for the CEGIS algorithm (SMT2 only).
 #define DEFAULT_CEGIS_LOGIC "BV"
@@ -100,24 +101,59 @@ void instrument_expressions(
             expressions.find(identifier) != expressions.end() &&
             call.lhs().is_not_nil())
           {
-            const code_typet &code_type = to_code_type(call.function().type());
+            code_typet code_type = to_code_type(call.function().type());
             const typet &codomain = code_type.return_type();
-            const code_typet::parameterst &params = code_type.parameters();
+            code_typet::parameterst &params = code_type.parameters();
             mathematical_function_typet::domaint domain(params.size());
 
-            transform(
+            for(const auto &p : code_type.parameters())
+            {
+              if(p.type().id()==ID_pointer)
+              {
+                typet type=array_typet(p.type().subtype(),
+                    symbol_exprt(p.id(), p.type().subtype()));
+                domain.push_back(type);
+
+                std::cout<<"Replacing "<<id2string(p.type().id())
+                    <<" with "<<id2string(type.id())<<std::endl;
+              }
+              else
+                domain.push_back(p.type());
+            }
+
+
+      /*      transform(
               begin(params),
               end(params),
               begin(domain),
-              [](const code_typet::parametert &param) { return param.type(); });
+              [](const code_typet::parametert &param) { return param.type(); });*/
 
             const mathematical_function_typet type(domain, codomain);
 
             instruction.type = ASSIGN;
 
+            // replace pointer to array arguments with arrays
+            exprt::operandst new_arguments;
+            for(auto &arg : call.arguments())
+            {
+              if(arg.id() == ID_address_of)
+              {
+                address_of_exprt tmp = to_address_of_expr(arg);
+                if(tmp.object().id() == ID_index)
+                {
+                  exprt new_expr=to_index_expr(tmp.object()).array();
+                  new_arguments.push_back(new_expr);
+                }
+                else
+                  new_arguments.push_back(arg);
+              }
+              else
+                new_arguments.push_back(arg);
+            }
+
             function_application_exprt e(
               symbol_exprt(identifier, type),
-              call.arguments(),
+              new_arguments,
               call.lhs().type());
 
             instruction.code = code_assignt(call.lhs(), e);

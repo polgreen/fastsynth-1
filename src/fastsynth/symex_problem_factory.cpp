@@ -288,6 +288,8 @@ get_free_variables(std::set<exprt> &free_variables, const exprt &expr)
     [](const exprt &expr) { return ID_nondet_symbol == expr.id(); });
 }
 
+
+
 problemt to_problem(
   message_handlert &msg,
   const namespacet &ns,
@@ -309,6 +311,7 @@ problemt to_problem(
 
   for(const exprt &c : result.side_conditions)
     get_free_variables(result.free_variables, c);
+
 
   return result;
 }

@@ -1,14 +1,17 @@
 #include "verify_encoding.h"
 
 #include <util/arith_tools.h>
+#include <iostream>
 
 //#include <langapi/language_util.h>
 
 void verify_encodingt::check_function_bodies(
   const functionst &functions)
 {
+  std::cout<<"Number of functions "<< functions.size()<<std::endl;
   for(const auto &f : functions)
   {
+    std::cout<<"FUnction "<<f.second.pretty()<<std::endl;
     if(ID_bool == f.second.type().id())
       continue; // Synth encoding with just literal assignments as solution.
 
@@ -30,9 +33,11 @@ void verify_encodingt::check_function_body(
     const irep_idt identifier=to_symbol_expr(expr).get_identifier();
     static const std::string parameter_prefix="synth::parameter";
 
-    if(std::string(id2string(identifier), 0, parameter_prefix.size())==parameter_prefix)
+    if(std::string(id2string(identifier), 0,
+        parameter_prefix.size())==parameter_prefix)
     {
-      std::string suffix(id2string(identifier), parameter_prefix.size(), std::string::npos);
+      std::string suffix(id2string(identifier),
+          parameter_prefix.size(), std::string::npos);
       std::size_t count=std::stoul(suffix);
       const auto &parameters=signature.domain();
       if(count>=parameters.size())
@@ -44,7 +49,8 @@ void verify_encodingt::check_function_body(
       if(expr.type()!=parameters[count])
       {
         throw "parameter with invalid type in function body: "+
-              id2string(identifier);
+        id2string(parameters[count].id())+
+              id2string(expr.type().id());
       }
     }
     else

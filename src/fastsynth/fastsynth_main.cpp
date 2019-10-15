@@ -27,6 +27,8 @@
   "(verbosity):"                                                               \
   "(smt)"                                                                      \
   "(literals)"                                                                 \
+  "(unwind):"                                                                  \
+  "(array-length)"                                                             \
   "(enable-division)"
 
 /// File ending of Siemens STL source files. Used to determine the language

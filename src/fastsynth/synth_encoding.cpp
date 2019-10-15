@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <iostream>
 #include <iterator>
+#include <iostream>
 
 typet promotion(const typet &t0, const typet &t1)
 {
@@ -75,7 +76,11 @@ void e_datat::setup(
   const auto &arguments=e.arguments();
   parameter_types.resize(arguments.size());
   for(std::size_t i=0; i<parameter_types.size(); i++)
+  {
     parameter_types[i]=arguments[i].type();
+    if(arguments[i].type().id()==ID_array)
+      has_array_operand=true;
+  }
 
   word_type=compute_word_type();
 
@@ -103,13 +108,14 @@ void e_datat::setup(
       auto &option=instruction.add_option(param_sel_id);
       option.kind=instructiont::optiont::PARAMETER;
       option.parameter_number=i;
+
     }
 
     // a binary operation
 
     static const irep_idt ops[]=
       { ID_plus, ID_minus, ID_shl, ID_bitand, ID_bitor, ID_bitxor,
-        ID_le, ID_lt, ID_equal, ID_notequal, "max", "min", ID_div, ID_lshr, };
+        ID_le, ID_lt, ID_equal, ID_notequal, "max", "min", ID_div, ID_lshr, "array_element"};
    // static const irep_idt ops[]=
      ///     { ID_plus, ID_minus, ID_ashr, ID_shr, ID_bitor };
 
@@ -129,6 +135,11 @@ void e_datat::setup(
           word_type.id()!=ID_signedbv) || !enable_division)
         if(operation==ID_div)
           continue;
+
+      // have we detected an array argument?
+      if(operation=="array_element" && !has_array_operand)
+        continue;
+
 
       for(std::size_t operand0=0; operand0<pc; operand0++)
         for(std::size_t operand1=0; operand1<pc; operand1++)
@@ -154,7 +165,14 @@ void e_datat::setup(
               continue;
           }
 
+          // array operators cam only be applied to arrays
+          if(operation=="array_element" && !operand_is_array[operand1])
+              continue;
+          if(operation!="array_element" && operand_is_array[operand1])
+            continue;
+
           irep_idt final_operation=operation;
+
 
           if(word_type.id()==ID_bool)
           {
@@ -199,6 +217,8 @@ void e_datat::setup(
         }
     }
 
+
+
     std::size_t ternary_option_index=0;
     // trinary operator, if-then-else
     for(std::size_t operand0=0; operand0<pc; operand0++)
@@ -242,6 +262,9 @@ if_exprt e_datat::instructiont::chain(
     expr_false);
 }
 
+
+
+
 exprt e_datat::instructiont::constraint(
   const typet &word_type,
   const std::vector<exprt> &arguments,
@@ -271,6 +294,7 @@ exprt e_datat::instructiont::constraint(
         assert(option.operand0<results.size());
         assert(option.operand1<results.size());
 
+
         const auto &op0=results[option.operand0];
         const auto &op1=results[option.operand1];
 
@@ -282,6 +306,20 @@ exprt e_datat::instructiont::constraint(
           if_exprt if_expr(rel, op0, op1);
           result_expr=chain(option.sel, if_expr, result_expr);
         }
+        else if(option.operation=="array_element")
+        {
+          std::cout<<"ARRAY ELEMENT OP\n";
+          std::cout<<"OP0 "<< op0.pretty();
+          std::cout<<"OP1 "<< op1.pretty();
+          INVARIANT(op1.id()==ID_address_of &&
+              to_address_of_expr(op1).object().id()==ID_index, "");
+
+          index_exprt tmp=index_exprt(
+              to_index_expr(
+                  to_address_of_expr(op1).object()).array(), op0);
+          result_expr=chain(option.sel, tmp, result_expr);
+
+        }
         else if(option.operation=="ID_div")
         {
           // if op1 is zero, smt division returns 1111
@@ -292,7 +330,8 @@ exprt e_datat::instructiont::constraint(
           binary_expr.op1() = op1;
 
           bv_spect spec(op0.type());
-          if_exprt if_expr(op_divbyzero, constant_exprt(integer2string(spec.max_value()), op0.type()),
+          if_exprt if_expr(op_divbyzero, constant_exprt(
+              integer2string(spec.max_value()), op0.type()),
               binary_expr);
           result_expr = chain(option.sel, if_expr, result_expr);
         }
@@ -304,9 +343,12 @@ exprt e_datat::instructiont::constraint(
 
          binary_predicate_exprt shift_greater_than_width(ID_ge);
          shift_greater_than_width.op0()=op1;
-         shift_greater_than_width.op1()=constant_exprt(integer2string(to_unsignedbv_type(op0.type()).get_width()),op0.type());
+         shift_greater_than_width.op1()=constant_exprt(
+             integer2string(to_unsignedbv_type(
+                 op0.type()).get_width()), op0.type());
 
-         if_exprt if_expr(shift_greater_than_width, constant_exprt("0", op0.type()), shift_expr);
+         if_exprt if_expr(shift_greater_than_width,
+             constant_exprt("0", op0.type()), shift_expr);
          result_expr=chain(option.sel, if_expr, result_expr);
         }
         else
@@ -476,6 +518,10 @@ exprt e_datat::get_function(
               binary_predicate_exprt rel(op0, ID_le, op1);
               result=if_exprt(rel, op0, op1);
             }
+            else if(binary_op.operation=="array_element")
+            {
+              // TODO implement array element thing
+            }
             else
             {
               result=binary_exprt(
@@ -542,7 +588,7 @@ exprt e_datat::get_function(
   return promotion(results.back(), return_type);
 }
 
-#include <iostream>
+
 exprt synth_encodingt::operator()(const exprt &expr)
 {
   if(expr.id()==ID_function_application)
@@ -557,7 +603,8 @@ exprt synth_encodingt::operator()(const exprt &expr)
     e_datat &e_data=e_data_map[to_symbol_expr(tmp.function())];
     if(e_data.word_type.id().empty())
       e_data.literals=literals;
-    exprt final_result=e_data(tmp, program_size, enable_bitwise, enable_division);
+    exprt final_result=e_data(
+        tmp, program_size, enable_bitwise, enable_division, has_array_operand, operand_is_array);
 
     for(const auto &c : e_data.constraints)
       constraints.push_back(c);

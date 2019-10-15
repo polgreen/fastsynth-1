@@ -10,6 +10,6 @@ int main()
   int out=EXPRESSION(in);
   __CPROVER_assert(out==in, "");
 
-  ignore:
+ignore:
   __CPROVER_assume(0 == 1);
 }

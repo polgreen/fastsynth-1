@@ -30,7 +30,7 @@
 
 /// Prefix that precedes each synthesised expression in C.
 #define C_EXPRESSION_PREFIX "EXPRESSION"
-
+#include <iostream>
 int c_frontend(const cmdlinet &cmdline)
 {
   // Environment setup.
@@ -62,14 +62,36 @@ int c_frontend(const cmdlinet &cmdline)
   instrument_expressions(expressions, goto_model);
   process_goto_model(goto_model);
 
+
+
   // Perform symex to get a mathematical representation of the problem.
   optionst options;
   options.set_option("propagation", true);
   options.set_option("simplify", true);
+  if(cmdline.isset("unwind"))
+    options.set_option("unwind", cmdline.get_value("unwind"));
+
+
   symbol_tablet symex_symbol_table;
   problemt problem{to_problem(mh, options, symex_symbol_table, goto_model)};
   if(cmdline.isset("literals"))
     add_literals(problem);
+#if 0
+  std::cout << "PROBLEM :\n";
+  std::cout << "constraints:\n ";
+  for(const auto &c : problem.constraints)
+    std::cout << c.pretty() << std::endl;
+
+  std::cout << "side conditions:\n ";
+  for(const auto &c : problem.side_conditions)
+    std::cout << c.pretty() << std::endl;
+
+  std::cout << "free var:\n ";
+  for(const auto &c : problem.free_variables)
+    std::cout << c.pretty() << std::endl;
+#endif
+  // if(cmdline.isset("array-length"))
+  //  find_array_length(problem);
 
   // Use symbol tables for creating a namespace and CEGIS instance.
   namespacet ns(goto_model.symbol_table, symex_symbol_table);
