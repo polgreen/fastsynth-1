@@ -1,4 +1,5 @@
 #include <util/std_types.h>
+#include <util/c_types.h>
 #include <util/config.h>
 #include <util/bv_arithmetic.h>
 
@@ -58,6 +59,14 @@ typet e_datat::compute_word_type()
 
   for(const auto & t : parameter_types)
     result=promotion(result, t);
+
+  std::cout<<"Word type "<< result.pretty()<<std::endl;
+
+  if(result.id()==ID_array||result.id()==ID_array_of)
+  {
+    std::cout<<"Found word type is array. Returning sub type "<< id2string(result.subtype().id())<<std::endl;
+    return result.subtype();
+  }
 
   return result;
 }
@@ -297,7 +306,7 @@ exprt e_datat::instructiont::constraint(
   const std::vector<exprt> &results,
   const std::vector<exprt> &array_results)
 {
-  // constant, which is last resort
+ // constant, which is last resort
   exprt result_expr=constant_val;
 
   for(const auto &option : options)
@@ -313,11 +322,12 @@ exprt e_datat::instructiont::constraint(
       break;
     case optiont::ARRAY_PARAMETER:
       {
-        result_expr=array_of_exprt(constant_exprt("0", bv_typet(32)),
-            array_typet(word_type, constant_exprt(ARRAY_SIZE, bv_typet(32))));
-        exprt promoted_arg=
-          promotion(arguments[option.parameter_number], word_type);
-        result_expr=chain(option.sel, promoted_arg, result_expr);
+        result_expr=array_of_exprt(constant_exprt("0", word_type),
+            array_typet(word_type, constant_exprt(
+                ARRAY_SIZE, unsignedbv_typet(32))));
+
+        result_expr=chain(option.sel,
+            arguments[option.parameter_number], result_expr);
       }
       break;
 
@@ -344,13 +354,9 @@ exprt e_datat::instructiont::constraint(
         }
         else if(option.operation=="array_element")
         {
-          std::cout<<"ARRAY ELEMENT OP\n";
           assert(option.operand0<array_results.size());
           const auto &op0=array_results[option.operand0];
-          std::cout<<"op0 "<< op0.pretty()<<std::endl;
-          std::cout<<"op1 "<< op1.pretty()<<std::endl;
           index_exprt tmp=index_exprt(op0, op1);
-          std::cout<<"index exprt "<< tmp.pretty();
           result_expr=chain(option.sel, tmp, result_expr);
 
         }
@@ -456,45 +462,49 @@ exprt e_datat::result(const argumentst &arguments)
 
   std::vector<exprt> results, array_results;
   results.resize(instructions.size(), nil_exprt());
-  std::cout<<"ARRAY INSTRUCTIONS SIZE "<< array_instructions.size();
 
   array_results.resize(array_instructions.size(), nil_exprt());
   constraints.clear();
 
   const irep_idt &identifier=function_symbol.get_identifier();
 
+  argumentst args_with_consts(arguments);
+  copy(begin(literals), end(literals), back_inserter(args_with_consts));
+
+  // build results
   for(std::size_t pc=0; pc<instructions.size(); pc++)
   {
-    argumentst args_with_consts(arguments);
-    copy(begin(literals), end(literals), back_inserter(args_with_consts));
+    // results vary by instance
+    irep_idt result_identifier = id2string(identifier) + "_inst" +
+                                 std::to_string(instance_number) + "_result_" +
+                                 std::to_string(pc);
+
+    results[pc] = symbol_exprt(result_identifier, word_type);
+    if(pc<array_instructions.size())
+    {
+      irep_idt array_result_identifier=
+              id2string(identifier)+"_inst"+std::to_string(instance_number)+
+              "_array_result_"+std::to_string(pc);
+      array_results[pc]=symbol_exprt(array_result_identifier,
+          array_typet(word_type, constant_exprt(
+                          ARRAY_SIZE, unsignedbv_typet(32))));
+    }
+    assert(!results.empty());
+  }
+  // build constraints
+  for(std::size_t pc=0; pc<instructions.size(); pc++)
+  {
     exprt c=instructions[pc].constraint(
         word_type, args_with_consts, results, array_results);
-
+    constraints.push_back(equal_exprt(results[pc], c));
 
     if(pc<array_instructions.size())
     {
       exprt c_array=array_instructions[pc].constraint(
-          array_typet(word_type, constant_exprt(ARRAY_SIZE, bv_typet(32)))
-          , args_with_consts, results, array_results);
-      // results vary by instance
-      irep_idt result_identifier=
-        id2string(identifier)+"_inst"+std::to_string(instance_number)+
-        "_array_result_"+std::to_string(pc);
-      array_results[pc]=symbol_exprt(result_identifier, c_array.type());
+         word_type, args_with_consts, results, array_results);
       constraints.push_back(equal_exprt(array_results[pc], c_array));
     }
-
-    // results vary by instance
-    irep_idt result_identifier=
-      id2string(identifier)+"_inst"+std::to_string(instance_number)+
-      "_result_"+std::to_string(pc);
-
-    results[pc]=symbol_exprt(result_identifier, c.type());
-
-    constraints.push_back(equal_exprt(results[pc], c));
   }
-
-  assert(!results.empty());
 
   return promotion(results.back(), return_type);
 }
