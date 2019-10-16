@@ -513,6 +513,7 @@ exprt e_datat::get_function(
   const decision_proceduret &solver,
   bool constant_variables) const
 {
+  std::cout<<"####Getting function \n";
   assert(!instructions.empty());
 
   std::vector<exprt> results;
@@ -520,6 +521,7 @@ exprt e_datat::get_function(
 
   for(std::size_t pc=0; pc<instructions.size(); pc++)
   {
+    std::cout<<"####Getting instruction "<<pc;
     const auto &instruction=instructions[pc];
     exprt &result=results[pc];
     result=nil_exprt();
@@ -640,6 +642,7 @@ exprt e_datat::get_function(
     // selectors is true
     if(result.is_nil())
     {
+      std::cout<<"######No selectors are true \n";
       if(constant_variables)
         result=instruction.constant_val;
       else

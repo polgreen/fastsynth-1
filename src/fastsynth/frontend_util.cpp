@@ -133,13 +133,14 @@ void instrument_expressions(
 
             // replace pointer to array arguments with arrays
             exprt::operandst new_arguments;
-            for(auto &arg : call.arguments())
+           for(auto &arg : call.arguments())
             {
               if(arg.id() == ID_address_of)
               {
                 address_of_exprt tmp = to_address_of_expr(arg);
                 if(tmp.object().id() == ID_index)
                 {
+                  std::cout <<"Replacing ID address of with array\n";
                   exprt new_expr=to_index_expr(tmp.object()).array();
                   new_arguments.push_back(new_expr);
                 }
