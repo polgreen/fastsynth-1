@@ -26,7 +26,7 @@
 #include <util/prefix.h>
 
 #include <iostream>
-#define ARRAY_SIZE 10
+
 
 /// Default logic for the CEGIS algorithm (SMT2 only).
 #define DEFAULT_CEGIS_LOGIC "BV"
@@ -104,7 +104,7 @@ void instrument_expressions(
             code_typet code_type = to_code_type(call.function().type());
             const typet &codomain = code_type.return_type();
             code_typet::parameterst &params = code_type.parameters();
-            mathematical_function_typet::domaint domain(params.size());
+            mathematical_function_typet::domaint domain;
 
             for(const auto &p : code_type.parameters())
             {
@@ -120,6 +120,7 @@ void instrument_expressions(
               else
                 domain.push_back(p.type());
             }
+            assert(params.size()==domain.size());
 
       /*      transform(
               begin(params),

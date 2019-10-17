@@ -54,7 +54,8 @@ public:
       symbol_exprt sel = symbol_exprt::typeless(ID_empty_string);
       irep_idt operation;
       std::size_t parameter_number;
-      enum { NONE, PARAMETER, UNARY, BINARY, BINARY_PREDICATE, ITE, ARRAY_PARAMETER } kind;
+      enum { NONE, PARAMETER, UNARY, BINARY,
+        BINARY_PREDICATE, ITE, ARRAY_PARAMETER } kind;
       std::size_t operand0, operand1, operand2;
       exprt type;
     };

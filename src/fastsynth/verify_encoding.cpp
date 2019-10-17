@@ -40,17 +40,24 @@ void verify_encodingt::check_function_body(
           parameter_prefix.size(), std::string::npos);
       std::size_t count=std::stoul(suffix);
       const auto &parameters=signature.domain();
-      std::cout<<"FUNCTION "<<signature.pretty()<<std::endl;
+      std::cout<<"###FUNCTION "<<signature.pretty()<<std::endl;
+      std::cout<<"parameters size "<< parameters.size();
+      for(const auto &p: parameters)
+      {
+        std::cout<<"### parameter "<< p.pretty()<<std::endl;
+
+      }
       if(count>=parameters.size())
       {
         throw "invalid parameter in function body: "+
               id2string(identifier);
       }
 
-      if(expr.type()!=parameters[count])
+      if(expr.type()!=parameters[count] &&
+          !(expr.type().id()==ID_array && parameters[count].id()==ID_array))
       {
-        throw "parameter with invalid type in function body: parameter ID"+
-        (parameters[count].pretty())+ " expression ID: "
+        throw "parameter with invalid type in function body: \n\nparameter ID"+
+        (parameters[count].pretty())+ " \n\nexpression ID: "
 +              (expr.type().pretty());
       }
     }

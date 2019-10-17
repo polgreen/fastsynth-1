@@ -474,6 +474,7 @@ exprt e_datat::result(const argumentst &arguments)
   // build results
   for(std::size_t pc=0; pc<instructions.size(); pc++)
   {
+
     // results vary by instance
     irep_idt result_identifier = id2string(identifier) + "_inst" +
                                  std::to_string(instance_number) + "_result_" +
@@ -486,7 +487,8 @@ exprt e_datat::result(const argumentst &arguments)
               id2string(identifier)+"_inst"+std::to_string(instance_number)+
               "_array_result_"+std::to_string(pc);
       array_results[pc]=symbol_exprt(array_result_identifier,
-          array_typet(word_type, constant_exprt(
+          array_typet(word_type,
+              constant_exprt(
                           ARRAY_SIZE, unsignedbv_typet(32))));
     }
     assert(!results.empty());
@@ -567,7 +569,6 @@ exprt e_datat::get_function(
           constant_exprt("0", word_type),
           array_typet(
             word_type, constant_exprt(ARRAY_SIZE, unsignedbv_typet(32))));
-        ;
       }
     }
   }
@@ -641,9 +642,6 @@ exprt e_datat::get_function(
             {
               assert(binary_op.operand0<array_results.size());
               op0=array_results[binary_op.operand0];
-              std::cout<<"ARRAY ELEMENT \nARRAY \n";
-              std::cout<<op0.pretty()<<"\nINDEX \n";
-              std::cout<<op1.pretty()<<std::endl;
               result=index_exprt(op0, op1);
             }
             else
