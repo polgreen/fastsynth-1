@@ -2,6 +2,7 @@
 #include <util/c_types.h>
 #include <util/config.h>
 #include <util/bv_arithmetic.h>
+#include <util/string_expr.h>
 
 #include "synth_encoding.h"
 
@@ -356,8 +357,18 @@ exprt e_datat::instructiont::constraint(
         {
           assert(option.operand0<array_results.size());
           const auto &op0=array_results[option.operand0];
+          // index array op0 with index op1
           index_exprt tmp=index_exprt(op0, op1);
-          result_expr=chain(option.sel, tmp, result_expr);
+
+          and_exprt bounds=and_exprt(
+              binary_relation_exprt(
+                  op1,ID_lt, constant_exprt(ARRAY_SIZE, word_type)),
+              binary_relation_exprt(
+                  op1,ID_ge, constant_exprt("0", word_type)));
+
+          and_exprt and_expr(bounds, option.sel);
+          result_expr=if_exprt(and_expr, tmp, result_expr);
+         // result_expr=chain(and_expr, tmp, result_expr);
 
         }
         else if(option.operation=="ID_div")
@@ -415,7 +426,6 @@ exprt e_datat::instructiont::constraint(
         binary_expr.op1()=op1;
 
         exprt promoted=promotion(binary_expr, word_type);
-
         result_expr=chain(option.sel, promoted, result_expr);
       }
       break;
