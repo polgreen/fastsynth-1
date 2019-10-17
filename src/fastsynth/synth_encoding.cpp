@@ -513,15 +513,67 @@ exprt e_datat::get_function(
   const decision_proceduret &solver,
   bool constant_variables) const
 {
-  std::cout<<"####Getting function \n";
   assert(!instructions.empty());
+
+  std::vector<exprt> array_results;
+  array_results.resize(array_instructions.size(), nil_exprt());
 
   std::vector<exprt> results;
   results.resize(instructions.size(), nil_exprt());
 
+  for(std::size_t pc = 0; pc < array_instructions.size(); pc++)
+  {
+    const auto &array_instruction = array_instructions[pc];
+    exprt &array_result = array_results[pc];
+    // we now go _backwards_ through the options, as we've
+    // built the ite inside-out
+    for(instructiont::optionst::const_reverse_iterator o_it =
+          array_instruction.options.rbegin();
+        array_result.is_nil() && o_it != array_instruction.options.rend();
+        o_it++)
+    {
+      if(solver.get(o_it->sel).is_true())
+      {
+        switch(o_it->kind)
+        {
+        case instructiont::optiont::ARRAY_PARAMETER:
+        {
+          const size_t num_params = parameter_types.size();
+          if(o_it->parameter_number < num_params)
+          {
+            irep_idt p_identifier =
+              "synth::parameter" + std::to_string(o_it->parameter_number);
+            array_result = promotion(
+              symbol_exprt(
+                p_identifier, parameter_types[o_it->parameter_number]),
+              word_type);
+          }
+          break;
+        }
+        case instructiont::optiont::PARAMETER:
+        case instructiont::optiont::BINARY:
+        case instructiont::optiont::UNARY:
+        case instructiont::optiont::BINARY_PREDICATE:
+        case instructiont::optiont::ITE:
+        case instructiont::optiont::NONE:
+          break;
+        }
+      }
+      // constant, this is the last resort when none of the
+      // selectors is true
+      if(array_result.is_nil())
+      {
+        array_result = array_of_exprt(
+          constant_exprt("0", word_type),
+          array_typet(
+            word_type, constant_exprt(ARRAY_SIZE, unsignedbv_typet(32))));
+        ;
+      }
+    }
+  }
+
   for(std::size_t pc=0; pc<instructions.size(); pc++)
   {
-    std::cout<<"####Getting instruction "<<pc;
     const auto &instruction=instructions[pc];
     exprt &result=results[pc];
     result=nil_exprt();
@@ -539,6 +591,9 @@ exprt e_datat::get_function(
         switch(o_it->kind)
         {
         case instructiont::optiont::ARRAY_PARAMETER:
+          std::cout<<
+          "ERROR we tried to get an array parameter in a non-array instruction\n";
+          break;
         case instructiont::optiont::PARAMETER: // a parameter
           {
             const size_t num_params=parameter_types.size();
@@ -584,7 +639,12 @@ exprt e_datat::get_function(
             }
             else if(binary_op.operation=="array_element")
             {
-              // TODO implement array element thing
+              assert(binary_op.operand0<array_results.size());
+              op0=array_results[binary_op.operand0];
+              std::cout<<"ARRAY ELEMENT \nARRAY \n";
+              std::cout<<op0.pretty()<<"\nINDEX \n";
+              std::cout<<op1.pretty()<<std::endl;
+              result=index_exprt(op0, op1);
             }
             else
             {
@@ -642,7 +702,6 @@ exprt e_datat::get_function(
     // selectors is true
     if(result.is_nil())
     {
-      std::cout<<"######No selectors are true \n";
       if(constant_variables)
         result=instruction.constant_val;
       else

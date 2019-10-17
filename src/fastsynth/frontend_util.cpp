@@ -132,7 +132,7 @@ void instrument_expressions(
             instruction.type = ASSIGN;
 
             // replace pointer to array arguments with arrays
-            exprt::operandst new_arguments;
+           exprt::operandst new_arguments;
            for(auto &arg : call.arguments())
             {
               if(arg.id() == ID_address_of)
@@ -150,6 +150,7 @@ void instrument_expressions(
               else
                 new_arguments.push_back(arg);
             }
+           assert(new_arguments.size()==call.arguments().size());
 
             function_application_exprt e(
               symbol_exprt(identifier, type),

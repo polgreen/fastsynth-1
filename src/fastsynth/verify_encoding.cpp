@@ -11,7 +11,7 @@ void verify_encodingt::check_function_bodies(
   std::cout<<"Number of functions "<< functions.size()<<std::endl;
   for(const auto &f : functions)
   {
-    std::cout<<"FUnction "<<f.second.pretty()<<std::endl;
+    std::cout<<"Function "<<f.second.pretty()<<std::endl;
     if(ID_bool == f.second.type().id())
       continue; // Synth encoding with just literal assignments as solution.
 
@@ -40,6 +40,7 @@ void verify_encodingt::check_function_body(
           parameter_prefix.size(), std::string::npos);
       std::size_t count=std::stoul(suffix);
       const auto &parameters=signature.domain();
+      std::cout<<"FUNCTION "<<signature.pretty()<<std::endl;
       if(count>=parameters.size())
       {
         throw "invalid parameter in function body: "+
@@ -48,9 +49,9 @@ void verify_encodingt::check_function_body(
 
       if(expr.type()!=parameters[count])
       {
-        throw "parameter with invalid type in function body: "+
-        id2string(parameters[count].id())+
-              id2string(expr.type().id());
+        throw "parameter with invalid type in function body: parameter ID"+
+        (parameters[count].pretty())+ " expression ID: "
++              (expr.type().pretty());
       }
     }
     else
