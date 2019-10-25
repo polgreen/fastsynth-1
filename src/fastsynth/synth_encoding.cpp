@@ -61,12 +61,12 @@ typet e_datat::compute_word_type()
   for(const auto & t : parameter_types)
     result=promotion(result, t);
 
-  std::cout<<"Word type "<< result.pretty()<<std::endl;
+//  std::cout<<"Word type "<< result.pretty()<<std::endl;
 
   if(result.id()==ID_array||result.id()==ID_array_of)
   {
-    std::cout<<"Found word type is array. Returning sub type "
-        << id2string(result.subtype().id())<<std::endl;
+ //   std::cout<<"Found word type is array. Returning sub type "
+   //     << id2string(result.subtype().id())<<std::endl;
     return result.subtype();
   }
 
@@ -97,6 +97,10 @@ void e_datat::setup(
     if(arguments[i].type().id()==ID_array)
       has_array_operand++;
   }
+  std::cout<<"Number of array operands "<<has_array_operand<<std::endl;
+  std::cout<<"Number of literals "<< literals.size()<<std::endl;
+  for(const auto &l : literals)
+    std::cout<<"lit: "<< l.pretty()<<std::endl;
 
   word_type=compute_word_type();
 
@@ -118,12 +122,18 @@ void e_datat::setup(
     irep_idt const_val_id=id2string(identifier)+"_"+std::to_string(pc)+"_cval";
     instruction.constant_val=symbol_exprt(const_val_id, word_type);
 
+
     // we ignore the constant val for arrays
 
     // one of the arguments or constants
     for(std::size_t i = 0; i < arguments.size() + literals.size(); i++)
     {
-      if(i > arguments.size() || arguments[i].type().id() != ID_array)
+      bool is_array=true;
+
+      if(i < arguments.size())
+        is_array=(arguments[i].type().id() == ID_array);
+
+      if(i > arguments.size() || !is_array)
       {
         irep_idt param_sel_id = id2string(identifier) + "_" +
                                 std::to_string(pc) + "_p" + std::to_string(i) +
@@ -132,7 +142,8 @@ void e_datat::setup(
         option.kind = instructiont::optiont::PARAMETER;
         option.parameter_number = i;
       }
-      else if(i<arguments.size() && pc < arguments.size() && has_array_operand>0)
+      else if(
+        i < arguments.size() && pc < arguments.size() && has_array_operand > 0)
       {
         irep_idt param_sel_id = id2string(identifier) + "_" +
                                 std::to_string(pc) + "_p" + std::to_string(i) +
@@ -156,7 +167,7 @@ void e_datat::setup(
     static const irep_idt ops[]=
       { ID_plus, ID_minus, ID_shl, ID_bitand, ID_bitor, ID_bitxor,
         ID_le, ID_lt, ID_equal, ID_notequal, "max", "min", ID_div, ID_lshr, "array_element",
-    "forall_array_LT",   "forall_array_LE", "forall_array_EQ"};
+    "forall_array_EQ",   "forall_array_LE", "forall_array_LT"};
    // static const irep_idt ops[]=
      ///     { ID_plus, ID_minus, ID_ashr, ID_shr, ID_bitor };
 
@@ -326,7 +337,7 @@ exprt e_datat::instructiont::constraint(
 {
  // constant, which is last resort
   exprt result_expr=constant_val;
-
+ // exprt result_expr=constant_exprt("0",word_type);
   for(const auto &option : options)
   {
     switch(option.kind)
@@ -340,12 +351,15 @@ exprt e_datat::instructiont::constraint(
       break;
     case optiont::ARRAY_PARAMETER:
       {
-        result_expr=array_of_exprt(constant_exprt("0", word_type),
+        // push back parameter as base option
+        result_expr=arguments[option.parameter_number];
+
+     /*   result_expr=array_of_exprt(constant_exprt("0", word_type),
             array_typet(word_type, constant_exprt(
                 ARRAY_SIZE, unsignedbv_typet(32))));
 
         result_expr=chain(option.sel,
-            arguments[option.parameter_number], result_expr);
+            arguments[option.parameter_number], result_expr);*/
       }
       break;
 
@@ -455,10 +469,12 @@ exprt e_datat::instructiont::constraint(
           comparator=ID_equal;
 
         exprt this_iter;
-        exprt previous_iter = binary_predicate_exprt(
-            index_exprt(op0, symbol_exprt("0", word_type)),
-            comparator,
-            index_exprt(op0, symbol_exprt("1", word_type)));
+        exprt previous_iter = and_exprt(binary_predicate_exprt(
+            index_exprt(op0, constant_exprt("0", word_type)),
+            comparator, op1),
+            binary_predicate_exprt(
+            index_exprt(op0, constant_exprt("1", word_type)),
+            comparator, op1));
 
         for(int i = 2; i < ARRAY_SIZE_INT; i++)
         {
@@ -626,10 +642,24 @@ exprt e_datat::get_function(
       // selectors is true
       if(array_result.is_nil())
       {
-        array_result = array_of_exprt(
+        std::cout<<"number fo array operands "<< has_array_operand<<std::endl;
+        INVARIANT(
+          has_array_operand > 0,
+          "shouldn't get here if we have no array operands");
+        // don't allow zero arrays
+        /*array_result = array_of_exprt(
           constant_exprt("0", word_type),
           array_typet(
-            word_type, constant_exprt(ARRAY_SIZE, unsignedbv_typet(32))));
+            word_type, constant_exprt(ARRAY_SIZE, unsignedbv_typet(32))));*/
+        for(std::size_t i = 0; i < parameter_types.size(); i++)
+        {
+          if(parameter_types[i].id() == ID_array)
+          {
+            irep_idt p_identifier = "synth::parameter" + std::to_string(i);
+            array_result = promotion(
+              symbol_exprt(p_identifier, parameter_types[i]), word_type);
+          }
+        }
       }
     }
   }
@@ -742,10 +772,15 @@ exprt e_datat::get_function(
                 comparator = ID_equal;
 
               exprt this_iter;
-              exprt previous_iter = binary_predicate_exprt(
-                  index_exprt(op0, symbol_exprt("0", word_type)),
+              exprt previous_iter = and_exprt(
+                binary_predicate_exprt(
+                  index_exprt(op0, constant_exprt("0", word_type)),
                   comparator,
-                  index_exprt(op0, symbol_exprt("1", word_type)));
+                  op1),
+                binary_predicate_exprt(
+                  index_exprt(op0, constant_exprt("1", word_type)),
+                  comparator,
+                  op1));
 
               for(int i = 2; i < ARRAY_SIZE_INT; i++)
               {
@@ -753,7 +788,6 @@ exprt e_datat::get_function(
                   op0, symbol_exprt(integer2string(i, 10), word_type));
 
                 this_iter = binary_predicate_exprt(index_expr, comparator, op1);
-
                 previous_iter = and_exprt(this_iter, previous_iter);
               }
 

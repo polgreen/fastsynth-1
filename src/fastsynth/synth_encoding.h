@@ -26,9 +26,6 @@ public:
     std::size_t _has_array_operand,
     std::vector<bool> array_operands)
   {
-    has_array_operand=_has_array_operand;
-    for(const auto &b : array_operands)
-      operand_is_array.push_back(b);
     setup(expr, program_size, enable_bitwise);
     return result(expr.arguments());
   }
