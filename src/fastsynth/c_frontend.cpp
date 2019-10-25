@@ -76,7 +76,7 @@ int c_frontend(const cmdlinet &cmdline)
   problemt problem{to_problem(mh, options, symex_symbol_table, goto_model)};
   if(cmdline.isset("literals"))
     add_literals(problem);
-#if 0
+#if 1
   std::cout << "PROBLEM :\n";
   std::cout << "constraints:\n ";
   for(const auto &c : problem.constraints)
