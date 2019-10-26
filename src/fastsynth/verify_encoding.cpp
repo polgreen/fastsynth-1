@@ -30,9 +30,11 @@ void verify_encodingt::check_function_body(
     const irep_idt identifier=to_symbol_expr(expr).get_identifier();
     static const std::string parameter_prefix="synth::parameter";
 
-    if(std::string(id2string(identifier), 0, parameter_prefix.size())==parameter_prefix)
+    if(std::string(id2string(identifier), 0,
+        parameter_prefix.size())==parameter_prefix)
     {
-      std::string suffix(id2string(identifier), parameter_prefix.size(), std::string::npos);
+      std::string suffix(id2string(identifier),
+          parameter_prefix.size(), std::string::npos);
       std::size_t count=std::stoul(suffix);
       const auto &parameters=signature.domain();
       if(count>=parameters.size())
@@ -41,10 +43,12 @@ void verify_encodingt::check_function_body(
               id2string(identifier);
       }
 
-      if(expr.type()!=parameters[count])
+      if(expr.type()!=parameters[count] &&
+          !(expr.type().id()==ID_array && parameters[count].id()==ID_array))
       {
-        throw "parameter with invalid type in function body: "+
-              id2string(identifier);
+        throw "parameter with invalid type in function body: \n\nparameter ID"+
+        (parameters[count].pretty())+ " \n\nexpression ID: "
++              (expr.type().pretty());
       }
     }
     else
