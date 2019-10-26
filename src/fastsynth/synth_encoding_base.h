@@ -8,7 +8,10 @@ class synth_encoding_baset {
  public:
   /// Default synthesis configuration.
   synth_encoding_baset()
-      : program_size(1u), enable_division(false), enable_bitwise(false) {}
+      : program_size(1u),
+        enable_division(false),
+        enable_bitwise(false),
+        has_array_operand(false) {}
 
   /// Virtual default destructor for defined behaviour.
   virtual ~synth_encoding_baset() = default;
@@ -39,6 +42,10 @@ class synth_encoding_baset {
   /// Indicates whether bitwise operations are allowed in synthesised programs.
   bool enable_bitwise;
 
+  /// Set to true if the function to be synthesised accepts arrays as an argument
+  bool has_array_operand;
+
+  std::vector<bool> operand_is_array;
   /// Mutable list of constraints.
   using constraintst = std::list<exprt>;
 
