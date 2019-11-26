@@ -24,7 +24,7 @@ public:
 protected:
   decision_proceduret &solver;
 
-  void command(const std::string &) override;
+  void command(const std::string &);
 };
 
 void smt2_frontendt::command(const std::string &c)
