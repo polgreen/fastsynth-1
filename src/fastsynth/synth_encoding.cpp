@@ -544,10 +544,10 @@ exprt e_datat::result(const argumentst &arguments)
       irep_idt array_result_identifier=
               id2string(identifier)+"_inst"+std::to_string(instance_number)+
               "_array_result_"+std::to_string(pc);
+
       array_results[pc]=symbol_exprt(array_result_identifier,
-          array_typet(word_type,
-              constant_exprt(
-                          ARRAY_SIZE, unsignedbv_typet(32))));
+                array_typet(word_type,
+                    infinity_exprt(unsignedbv_typet(32))));
     }
     assert(!results.empty());
   }
