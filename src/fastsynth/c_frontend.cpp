@@ -69,20 +69,49 @@ void instrument_expressions(
           if(expressions.find(identifier)!=expressions.end() &&
              c.lhs().is_not_nil())
           {
-            const code_typet &code_type = to_code_type(c.function().type());
+            code_typet code_type = to_code_type(c.function().type());
             const typet &codomain = code_type.return_type();
-            const code_typet::parameterst &params = code_type.parameters();
-            mathematical_function_typet::domaint domain(params.size());
+            code_typet::parameterst &params = code_type.parameters();
+            mathematical_function_typet::domaint domain;
 
-            transform(
-              begin(params),
-              end(params),
-              begin(domain),
-              [](const code_typet::parametert &param) { return param.type(); });
+            for(const auto &p : code_type.parameters())
+            {
+              if(p.type().id()==ID_pointer)
+              {
+                typet type=array_typet(p.type().subtype(),
+                    symbol_exprt(p.id(), p.type().subtype()));
+                domain.push_back(type);
+              }
+              else
+                domain.push_back(p.type());
+            }
+            assert(params.size()==domain.size());
 
             const mathematical_function_typet type(domain, codomain);
 
             i.type=ASSIGN;
+
+                       // replace pointer to array arguments with arrays
+            exprt::operandst new_arguments;
+            for(auto &arg : c.arguments())
+             {
+              if(arg.id() == ID_address_of)
+              {
+                address_of_exprt tmp = to_address_of_expr(arg);
+                if(tmp.object().id() == ID_index)
+                {
+                  std::cout <<"Replacing ID address of with array\n";
+                  exprt new_expr=to_index_expr(tmp.object()).array();
+                  new_arguments.push_back(new_expr);
+                }
+                else
+                  new_arguments.push_back(arg);
+              }
+              else
+                new_arguments.push_back(arg);
+            }
+           assert(new_arguments.size()==c.arguments().size());
+
 
             function_application_exprt e(
               symbol_exprt(identifier, type),

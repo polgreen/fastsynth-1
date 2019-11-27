@@ -1,11 +1,16 @@
 #include <util/std_types.h>
 #include <util/config.h>
 #include <util/bv_arithmetic.h>
+#include <util/string_expr.h>
+#include <util/c_types.h>
 
 #include "synth_encoding.h"
 
 #include <algorithm>
 #include <iostream>
+
+#define ARRAY_SIZE "2"
+#define ARRAY_SIZE_INT 2
 
 typet promotion(const typet &t0, const typet &t1)
 {
@@ -42,6 +47,10 @@ exprt promotion(const exprt &expr, const typet &t)
   if(expr.type()==t)
     return expr;
 
+  // don't promote arrays
+  if(expr.type().id()==ID_array)
+    return expr;
+
   return typecast_exprt(expr, t);
 }
 
@@ -51,6 +60,9 @@ typet e_datat::compute_word_type()
 
   for(const auto & t : parameter_types)
     result=promotion(result, t);
+
+  if(result.id()==ID_array||result.id()==ID_array_of)
+    return result.subtype();
 
   return result;
 }
@@ -72,8 +84,13 @@ void e_datat::setup(
 
   const auto &arguments=e.arguments();
   parameter_types.resize(arguments.size());
+
   for(std::size_t i=0; i<parameter_types.size(); i++)
+  {
     parameter_types[i]=arguments[i].type();
+    if(arguments[i].type().id()==ID_array)
+      has_array_operand++;
+  }
 
   word_type=compute_word_type();
 
@@ -87,27 +104,57 @@ void e_datat::setup(
   for(std::size_t pc=0; pc<program_size; pc++)
   {
     instructions.push_back(instructiont(pc));
+    array_instructions.push_back(instructiont(pc));
     auto &instruction=instructions[pc];
+    auto &array_instruction=array_instructions[pc];
 
     // constant -- hardwired default, not an option
     irep_idt const_val_id=id2string(identifier)+"_"+std::to_string(pc)+"_cval";
     instruction.constant_val=symbol_exprt(const_val_id, word_type);
 
     // one of the arguments or constants
-    for(std::size_t i=0; i<arguments.size()+literals.size(); i++)
+    for(std::size_t i = 0; i < arguments.size() + literals.size(); i++)
     {
-      irep_idt param_sel_id=id2string(identifier)+"_"+
-               std::to_string(pc)+"_p"+std::to_string(i)+"sel";
-      auto &option=instruction.add_option(param_sel_id);
-      option.kind=instructiont::optiont::PARAMETER;
-      option.parameter_number=i;
+      bool is_array=true;
+
+      if(i < arguments.size())
+        is_array=(arguments[i].type().id() == ID_array);
+
+      if(i > arguments.size() || !is_array)
+      {
+        irep_idt param_sel_id = id2string(identifier) + "_" +
+                                std::to_string(pc) + "_p" + std::to_string(i) +
+                                "sel";
+        auto &option = instruction.add_option(param_sel_id);
+        option.kind = instructiont::optiont::PARAMETER;
+        option.parameter_number = i;
+      }
+      else if(
+        i < arguments.size() && pc < arguments.size() && has_array_operand > 0)
+      {
+        irep_idt param_sel_id = id2string(identifier) + "_" +
+                                std::to_string(pc) + "_p" + std::to_string(i) +
+                                "sel";
+        auto &option = array_instruction.add_option(param_sel_id);
+        option.kind = instructiont::optiont::ARRAY_PARAMETER;
+        option.parameter_number = i;
+      }
     }
+
+    // we only need array instructions for each parameter that is an array
+    // We do not support operators that can be applied to arrays and produce
+    // arrays as output.
+
+    if(pc >= arguments.size() || has_array_operand==0)
+      array_instructions.pop_back();
+
 
     // a binary operation
 
     static const irep_idt ops[]=
       { ID_plus, ID_minus, ID_shl, ID_bitand, ID_bitor, ID_bitxor,
-        ID_le, ID_lt, ID_equal, ID_notequal, "max", "min", ID_div, ID_lshr, };
+        ID_le, ID_lt, ID_equal, ID_notequal, "max", "min", ID_div, ID_lshr, "array_element",
+    "forall_array_EQ",   "forall_array_LE", "forall_array_LT" };
    // static const irep_idt ops[]=
      ///     { ID_plus, ID_minus, ID_ashr, ID_shr, ID_bitor };
 
@@ -127,6 +174,14 @@ void e_datat::setup(
           word_type.id()!=ID_signedbv) || !enable_division)
         if(operation==ID_div)
           continue;
+
+      // have we detected an array argument?
+      if((operation=="array_element" ||
+          operation=="forall_array_LT" ||
+          operation=="forall_array_LE" ||
+          operation=="forall_array_EQ")
+          && has_array_operand==0)
+        continue;
 
       for(std::size_t operand0=0; operand0<pc; operand0++)
         for(std::size_t operand1=0; operand1<pc; operand1++)
@@ -151,6 +206,18 @@ void e_datat::setup(
             if(operand0>operand1)
               continue;
           }
+
+          // array operators can only be applied to arrays
+          // and only indexed with constants or parameters
+          // and only compared to constants or parameters
+          if((operation=="array_element"||
+              operation=="forall_array_LT" ||
+              operation=="forall_array_LE" ||
+              operation=="forall_array_EQ")
+              &&
+              (operand0>=array_instructions.size()))//||
+        //      operand1>=(arguments.size() + literals.size())))
+              continue;
 
           irep_idt final_operation=operation;
 
@@ -188,7 +255,10 @@ void e_datat::setup(
           if(final_operation==ID_le ||
              final_operation==ID_lt ||
              final_operation==ID_equal ||
-             final_operation==ID_notequal)
+             final_operation==ID_notequal ||
+             final_operation=="forall_array_LT" ||
+             final_operation=="forall_array_LE" ||
+             final_operation=="forall_array_EQ")
             option.kind=instructiont::optiont::BINARY_PREDICATE;
           else
             option.kind=instructiont::optiont::BINARY;
@@ -243,7 +313,8 @@ if_exprt e_datat::instructiont::chain(
 exprt e_datat::instructiont::constraint(
   const typet &word_type,
   const std::vector<exprt> &arguments,
-  const std::vector<exprt> &results)
+  const std::vector<exprt> &results,
+  const std::vector<exprt> &array_results)
 {
   // constant, which is last resort
   exprt result_expr=constant_val;
@@ -259,6 +330,19 @@ exprt e_datat::instructiont::constraint(
         result_expr=chain(option.sel, promoted_arg, result_expr);
       }
       break;
+
+    case optiont::ARRAY_PARAMETER:
+      {
+        // push back parameter as base option
+        result_expr=arguments[option.parameter_number];
+
+     /*   result_expr=array_of_exprt(constant_exprt("0", word_type),
+            array_typet(word_type, constant_exprt(
+                ARRAY_SIZE, unsignedbv_typet(32))));
+        result_expr=chain(option.sel,
+            arguments[option.parameter_number], result_expr);*/
+      }
+      break;  
 
     case optiont::UNARY:
       // TBD
@@ -279,6 +363,23 @@ exprt e_datat::instructiont::constraint(
           binary_predicate_exprt rel(op0, op, op1);
           if_exprt if_expr(rel, op0, op1);
           result_expr=chain(option.sel, if_expr, result_expr);
+        }
+        else if(option.operation=="array_element")
+        {
+          assert(option.operand0<array_results.size());
+          const auto &op0=array_results[option.operand0];
+          // index array op0 with index op1
+          index_exprt tmp=index_exprt(op0, op1);
+
+          and_exprt bounds=and_exprt(
+              binary_relation_exprt(
+                  op1, ID_lt, constant_exprt(ARRAY_SIZE, word_type)),
+              binary_relation_exprt(
+                  op1, ID_ge, constant_exprt("0", word_type)));
+
+          and_exprt and_expr(bounds, option.sel);
+          result_expr=if_exprt(and_expr, tmp, result_expr);
+         // result_expr=chain(and_expr, tmp, result_expr);
         }
         else if(option.operation=="ID_div")
         {
@@ -319,21 +420,58 @@ exprt e_datat::instructiont::constraint(
       break;
 
     case optiont::BINARY_PREDICATE: // a predicate
+    {
+      assert(option.operand0 < results.size());
+      assert(option.operand1 < results.size());
+
+      const auto &op0 = results[option.operand0];
+      const auto &op1 = results[option.operand1];
+
+      if(option.operation == "forall_array_LT" ||
+          option.operation == "forall_array_LE"||
+          option.operation == "forall_array_EQ")
       {
-        assert(option.operand0<results.size());
-        assert(option.operand1<results.size());
+        assert(option.operand0 < array_results.size());
+        assert(ARRAY_SIZE_INT>=2);
 
-        const auto &op0=results[option.operand0];
-        const auto &op1=results[option.operand1];
+        const auto &op0 = array_results[option.operand0];
+        // implement as loop with fixed bound.
+        irep_idt comparator;
+        if(option.operation == "forall_array_LT")
+          comparator=ID_lt;
+        else if(option.operation == "forall_array_LE")
+          comparator=ID_le;
+        else
+          comparator=ID_equal;
 
-        binary_exprt binary_expr(option.operation, bool_typet());
-        binary_expr.op0()=op0;
-        binary_expr.op1()=op1;
+        exprt this_iter;
+        exprt previous_iter = and_exprt(binary_predicate_exprt(
+            index_exprt(op0, constant_exprt("0", word_type)),
+            comparator, op1),
+            binary_predicate_exprt(
+            index_exprt(op0, constant_exprt("1", word_type)),
+            comparator, op1));
 
-        exprt promoted=promotion(binary_expr, word_type);
-
-        result_expr=chain(option.sel, promoted, result_expr);
+        for(int i = 2; i < ARRAY_SIZE_INT; i++)
+        {
+          exprt index_expr =
+            index_exprt(op0, symbol_exprt(integer2string(i, 10), word_type));
+          this_iter = binary_predicate_exprt(index_expr, comparator, op1);
+          previous_iter = and_exprt(this_iter, previous_iter);
+        }
+        result_expr =
+          chain(option.sel, promotion(previous_iter, word_type), result_expr);
       }
+      else
+      {
+        binary_exprt binary_expr(option.operation, bool_typet());
+        binary_expr.op0() = op0;
+        binary_expr.op1() = op1;
+
+        exprt promoted = promotion(binary_expr, word_type);
+        result_expr = chain(option.sel, promoted, result_expr);
+      }
+    }
       break;
     case optiont::ITE: // if-then-else
     {
@@ -376,31 +514,58 @@ exprt e_datat::result(const argumentst &arguments)
   // find out which instance this is
   std::size_t instance_number=this->instance_number(arguments);
 
-  std::vector<exprt> results;
+  std::vector<exprt> results, array_results;
   results.resize(instructions.size(), nil_exprt());
+  array_results.resize(array_instructions.size(), nil_exprt());
 
   constraints.clear();
 
   const irep_idt &identifier=function_symbol.get_identifier();
 
+  argumentst args_with_consts(arguments);
+  copy(begin(literals), end(literals), back_inserter(args_with_consts));
+
   for(std::size_t pc=0; pc<instructions.size(); pc++)
   {
     argumentst args_with_consts(arguments);
     copy(begin(literals), end(literals), back_inserter(args_with_consts));
-    exprt c=instructions[pc].constraint(word_type, args_with_consts, results);
+    exprt c=instructions[pc].constraint(
+      word_type, args_with_consts, results, array_results);
 
     // results vary by instance
-    irep_idt result_identifier=
-      id2string(identifier)+"_inst"+std::to_string(instance_number)+
-      "_result_"+std::to_string(pc);
+    irep_idt result_identifier = id2string(identifier) + "_inst" +
+                                 std::to_string(instance_number) + "_result_" +
+                                 std::to_string(pc);
 
-    results[pc]=symbol_exprt(result_identifier, c.type());
+    results[pc] = symbol_exprt(result_identifier, word_type);
 
-    constraints.push_back(equal_exprt(results[pc], c));
+    if(pc<array_instructions.size())
+    {
+      irep_idt array_result_identifier=
+              id2string(identifier)+"_inst"+std::to_string(instance_number)+
+              "_array_result_"+std::to_string(pc);
+      array_results[pc]=symbol_exprt(array_result_identifier,
+          array_typet(word_type,
+              constant_exprt(
+                          ARRAY_SIZE, unsignedbv_typet(32))));
+    }
+    assert(!results.empty());
   }
 
-  assert(!results.empty());
+     // build constraints
+  for(std::size_t pc=0; pc<instructions.size(); pc++)
+  {
+    exprt c=instructions[pc].constraint(
+        word_type, args_with_consts, results, array_results);
+    constraints.push_back(equal_exprt(results[pc], c));
 
+    if(pc<array_instructions.size())
+    {
+      exprt c_array=array_instructions[pc].constraint(
+         word_type, args_with_consts, results, array_results);
+      constraints.push_back(equal_exprt(array_results[pc], c_array));
+    }
+  }
   return promotion(results.back(), return_type);
 }
 
@@ -412,6 +577,74 @@ exprt e_datat::get_function(
 
   std::vector<exprt> results;
   results.resize(instructions.size(), nil_exprt());
+
+  std::vector<exprt> array_results;
+  array_results.resize(array_instructions.size(), nil_exprt());
+
+    for(std::size_t pc = 0; pc < array_instructions.size(); pc++)
+  {
+    const auto &array_instruction = array_instructions[pc];
+    exprt &array_result = array_results[pc];
+    // we now go _backwards_ through the options, as we've
+    // built the ite inside-out
+    for(instructiont::optionst::const_reverse_iterator o_it =
+          array_instruction.options.rbegin();
+        array_result.is_nil() && o_it != array_instruction.options.rend();
+        o_it++)
+    {
+      if(solver.get(o_it->sel).is_true())
+      {
+        switch(o_it->kind)
+        {
+        case instructiont::optiont::ARRAY_PARAMETER:
+        {
+          const size_t num_params = parameter_types.size();
+          if(o_it->parameter_number < num_params)
+          {
+            irep_idt p_identifier =
+              "synth::parameter" + std::to_string(o_it->parameter_number);
+            array_result = promotion(
+              symbol_exprt(
+                p_identifier, parameter_types[o_it->parameter_number]),
+              word_type);
+          }
+          break;
+        }
+        case instructiont::optiont::PARAMETER:
+        case instructiont::optiont::BINARY:
+        case instructiont::optiont::UNARY:
+        case instructiont::optiont::BINARY_PREDICATE:
+        case instructiont::optiont::ITE:
+        case instructiont::optiont::NONE:
+          break;
+        }
+      }
+      // constant, this is the last resort when none of the
+      // selectors is true
+      if(array_result.is_nil())
+      {
+        std::cout<<"number fo array operands "<< has_array_operand<<std::endl;
+        INVARIANT(
+          has_array_operand > 0,
+          "shouldn't get here if we have no array operands");
+        // don't allow zero arrays
+        /*array_result = array_of_exprt(
+          constant_exprt("0", word_type),
+          array_typet(
+            word_type, constant_exprt(ARRAY_SIZE, unsignedbv_typet(32))));*/
+        for(std::size_t i = 0; i < parameter_types.size(); i++)
+        {
+          if(parameter_types[i].id() == ID_array)
+          {
+            irep_idt p_identifier = "synth::parameter" + std::to_string(i);
+            array_result = promotion(
+              symbol_exprt(p_identifier, parameter_types[i]), word_type);
+          }
+        }
+      }
+    }
+  }
+
 
   for(std::size_t pc=0; pc<instructions.size(); pc++)
   {
@@ -431,6 +664,10 @@ exprt e_datat::get_function(
       {
         switch(o_it->kind)
         {
+        case instructiont::optiont::ARRAY_PARAMETER:
+          std::cout<<
+          "ERROR we tried to get an array parameter in a non-array instruction\n";
+          break;  
         case instructiont::optiont::PARAMETER: // a parameter
           {
             const size_t num_params=parameter_types.size();
@@ -439,7 +676,8 @@ exprt e_datat::get_function(
               irep_idt p_identifier="synth::parameter"+
                        std::to_string(o_it->parameter_number);
               result=promotion(
-                symbol_exprt(p_identifier, parameter_types[o_it->parameter_number]),
+                symbol_exprt(p_identifier, 
+                  parameter_types[o_it->parameter_number]),
                 word_type);
             }
             else // Constant
@@ -474,6 +712,12 @@ exprt e_datat::get_function(
               binary_predicate_exprt rel(op0, ID_le, op1);
               result=if_exprt(rel, op0, op1);
             }
+            else if(binary_op.operation=="array_element")
+            {
+              assert(binary_op.operand0<array_results.size());
+              op0=array_results[binary_op.operand0];
+              result=index_exprt(op0, op1);
+            }
             else
             {
               result=binary_exprt(
@@ -492,13 +736,58 @@ exprt e_datat::get_function(
             assert(binary_op.operand0<results.size());
             assert(binary_op.operand1<results.size());
 
-            result=binary_exprt(
-              results[binary_op.operand0],
-              binary_op.operation,
-              results[binary_op.operand1],
-              bool_typet());
+            if(
+              binary_op.operation == "forall_array_LT" ||
+              binary_op.operation == "forall_array_LE" ||
+              binary_op.operation == "forall_array_EQ")
+            {
+              assert(binary_op.operand0 < array_results.size());
 
-            result=promotion(result, word_type);
+              exprt op0=array_results[binary_op.operand0];
+              exprt op1=results[binary_op.operand1];
+
+              irep_idt comparator;
+              if(binary_op.operation == "forall_array_LT")
+                comparator = ID_lt;
+              else if(binary_op.operation == "forall_array_LE")
+                comparator = ID_le;
+              else
+                comparator = ID_equal;
+
+              exprt this_iter;
+              exprt previous_iter = and_exprt(
+                binary_predicate_exprt(
+                  index_exprt(op0, constant_exprt("0", word_type)),
+                  comparator,
+                  op1),
+                binary_predicate_exprt(
+                  index_exprt(op0, constant_exprt("1", word_type)),
+                  comparator,
+                  op1));
+
+              for(int i = 2; i < ARRAY_SIZE_INT; i++)
+              {
+                index_exprt index_expr(
+                  op0, symbol_exprt(integer2string(i, 10), word_type));
+
+                this_iter = binary_predicate_exprt(index_expr, comparator, op1);
+                previous_iter = and_exprt(this_iter, previous_iter);
+              }
+
+              assert(previous_iter.type().id()==ID_bool);
+              result = promotion(previous_iter, word_type);
+            }
+            else
+            {
+
+              result=binary_exprt(
+                results[binary_op.operand0],
+                binary_op.operation,
+                results[binary_op.operand1],
+                bool_typet());
+
+              result=promotion(result, word_type);
+            }
           }
           break;
 
@@ -553,8 +842,13 @@ exprt synth_encodingt::operator()(const exprt &expr)
     e_datat &e_data=e_data_map[to_symbol_expr(tmp.function())];
     if(e_data.word_type.id().empty())
       e_data.literals=literals;
-    exprt final_result=e_data(
-      tmp, program_size, enable_bitwise, enable_division);
+    exprt final_result = e_data(
+      tmp,
+      program_size,
+      enable_bitwise,
+      enable_division,
+      has_array_operand,
+      operand_is_array);
 
     for(const auto &c : e_data.constraints)
       constraints.push_back(c);
