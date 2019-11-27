@@ -41,7 +41,8 @@ void verify_encodingt::check_function_body(
               id2string(identifier);
       }
 
-      if(expr.type()!=parameters[count])
+      if(expr.type()!=parameters[count] && 
+        !(expr.type().id()==ID_array && parameters[count].id()==ID_array))
       {
         throw "parameter with invalid type in function body: "+
               id2string(identifier);
