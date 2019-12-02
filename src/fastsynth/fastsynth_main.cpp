@@ -11,7 +11,6 @@
    "(max-program-size):" \
    "(incremental)" \
    "(simplifying-solver)" \
-   "(fm)" \
    "(no-bitwise)" \
    "(verbosity):" \
    "(smt)" \

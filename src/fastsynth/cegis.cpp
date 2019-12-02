@@ -51,8 +51,9 @@ decision_proceduret::resultt cegist::operator()(
 
   learner->enable_bitwise=enable_bitwise;
 
-  verifier =
-      std::unique_ptr<verifyt>(new verifyt(ns, problem, get_message_handler()));
+
+    verifier=std::unique_ptr<verifyt>(new verifyt(
+      ns, problem, get_message_handler()));
 
   verifier->use_smt=use_smt;
   verifier->logic=logic;
