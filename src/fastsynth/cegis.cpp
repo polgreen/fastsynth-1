@@ -2,7 +2,7 @@
 #include "incremental_solver_learn.h"
 #include "solver_learn.h"
 #include "verify.h"
-#include "fm_verify.h"
+
 
 #include <langapi/language_util.h>
 
@@ -51,16 +51,8 @@ decision_proceduret::resultt cegist::operator()(
 
   learner->enable_bitwise=enable_bitwise;
 
-  if(use_fm)
-  {
-    verifier=std::unique_ptr<verifyt>(new fm_verifyt(
-      ns, problem, get_message_handler()));
-  }
-  else
-  {
-    verifier=std::unique_ptr<verifyt>(new verifyt(
-      ns, problem, get_message_handler()));
-  }
+  verifier =
+      std::unique_ptr<verifyt>(new verifyt(ns, problem, get_message_handler()));
 
   verifier->use_smt=use_smt;
   verifier->logic=logic;
