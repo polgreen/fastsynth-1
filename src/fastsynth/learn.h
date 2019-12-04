@@ -23,6 +23,8 @@ public:
 
   /// Sets the maximum program size permitted.
   virtual void set_program_size(size_t program_size) = 0;
+  /// Sets the maximum array size permitted.
+  virtual void set_array_size(std::size_t array_size) = 0;
 
   /// Finds a new candidate for the current counterexample set.
   /// \return \see decision_proceduret::resultt
