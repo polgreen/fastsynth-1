@@ -25,6 +25,7 @@ public:
     enable_bitwise(false),
     use_smt(false),
     logic("BV"),
+    array_size(10),
     ns(_ns)
   {
   }
@@ -41,9 +42,11 @@ public:
   bool enable_division;
   bool use_smt;
   std::string logic; // used by smt
+  std::size_t array_size;
+
+  const namespacet &ns; // needed for array cegis loop
 
 protected:
-  const namespacet &ns;
 
   decision_proceduret::resultt loop(
     const problemt &,
