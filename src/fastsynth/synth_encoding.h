@@ -16,15 +16,14 @@ public:
   enable_bitwise(false),
   enable_division(false),
   has_array_operand(0u),
+  array_size(10u),
   setup_done(false) { }
 
   exprt operator()(
     const function_application_exprt &expr,
     const std::size_t program_size,
     bool enable_bitwise,
-    bool enable_division,
-    std::size_t _has_array_operand,
-    std::vector<bool> array_operands)
+    bool enable_division)
   {
     setup(expr, program_size, enable_bitwise);
     return result(expr.arguments());
@@ -32,11 +31,15 @@ public:
 
   struct instructiont
   {
-    explicit instructiont(std::size_t _pc):pc(_pc)
+    explicit instructiont(std::size_t _pc, e_datat &_parent):
+        pc(_pc),
+        edata_parent(_parent)
     {
     }
 
     std::size_t pc;
+
+    e_datat &edata_parent;
 
     // constant, always the last resort
     symbol_exprt constant_val = symbol_exprt::typeless(ID_empty_string);
@@ -115,6 +118,7 @@ public:
   bool enable_bitwise;
   bool enable_division;
   std::size_t has_array_operand;
+  std::size_t array_size;
   std::vector<bool> operand_is_array;
 
   /// Pre-configured constants to include in the expression set.
@@ -131,12 +135,13 @@ protected:
     const bool enable_bitwise);
 };
 
-class synth_encodingt
-{
-public:
-  synth_encodingt():program_size(1), enable_bitwise(false), enable_division(false)
-  {
-  }
+class synth_encodingt {
+ public:
+  synth_encodingt()
+      : program_size(1),
+        enable_bitwise(false),
+        enable_division(false),
+        array_size(10) {}
 
   exprt operator()(const exprt &);
 
@@ -146,18 +151,15 @@ public:
   std::size_t program_size;
   bool enable_bitwise;
   bool enable_division;
-  bool has_array_operand;
+  std::size_t array_size;
 
-  std::vector<bool> operand_is_array;
-
-
-  using constraintst=std::list<exprt>;
+  using constraintst = std::list<exprt>;
   constraintst constraints;
 
   /// Pre-configured constants to include in the expression set.
   std::set<constant_exprt> literals;
 
-protected:
+ protected:
   std::map<symbol_exprt, e_datat> e_data_map;
 };
 

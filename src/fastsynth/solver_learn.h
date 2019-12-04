@@ -43,6 +43,7 @@ class solver_learnt:public solver_learn_baset
 {
   /// \see learnt::set_program_size(size_t)
   size_t program_size;
+  size_t array_size;
 
   /// Counterexample set to synthesise against.
   std::vector<counterexamplet> counterexamples;
@@ -65,6 +66,7 @@ public:
 
   /// \see learnt::set_program_size(size_t)
   void set_program_size(size_t program_size) override;
+  void set_array_size(std::size_t array_size) override;
 
   /// \see learnt::operator()()
   decision_proceduret::resultt operator()() override;
