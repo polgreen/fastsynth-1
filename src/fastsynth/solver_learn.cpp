@@ -7,7 +7,7 @@
 
 #include "synth_encoding.h"
 #include "solver_learn.h"
-
+#include <iostream>
 solver_learn_baset::solver_learn_baset(
   const namespacet &_ns,
   const problemt &_problem,
@@ -62,7 +62,8 @@ solver_learnt::solver_learnt(
   const problemt &_problem,
   message_handlert &_message_handler):
   solver_learn_baset(_ns, _problem, _message_handler),
-  program_size(1u)
+  program_size(1u),
+  array_size(10u)
 {
 }
 
@@ -71,8 +72,14 @@ void solver_learnt::set_program_size(const size_t program_size)
   this->program_size = program_size;
 }
 
+void solver_learnt::set_array_size(const size_t array_size)
+{
+  this->array_size = array_size;
+}
+
 decision_proceduret::resultt solver_learnt::operator()()
 {
+
   if(use_smt)
   {
     smt2_dect solver(
@@ -99,12 +106,14 @@ decision_proceduret::resultt solver_learnt::operator()(
   synth_encoding.program_size = program_size;
   synth_encoding.enable_bitwise = enable_bitwise;
   synth_encoding.literals = problem.literals;
+  synth_encoding.array_size=array_size;
+  status()<<"ARRAY SIZE "<< array_size<<eom;
 
   if(counterexamples.empty())
   {
     synth_encoding.suffix = "$ce";
     synth_encoding.constraints.clear();
-
+    status()<<"Start to add problem \n";
     add_problem(synth_encoding, solver);
   }
   else

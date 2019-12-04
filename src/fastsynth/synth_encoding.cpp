@@ -3,14 +3,13 @@
 #include <util/bv_arithmetic.h>
 #include <util/string_expr.h>
 #include <util/c_types.h>
+#include "array_cegis.h"
 
 #include "synth_encoding.h"
 
 #include <algorithm>
 #include <iostream>
 
-#define ARRAY_SIZE "2"
-#define ARRAY_SIZE_INT 2
 
 typet promotion(const typet &t0, const typet &t1)
 {
@@ -77,6 +76,7 @@ void e_datat::setup(
 
   enable_bitwise=_enable_bitwise;
 
+  DATA_INVARIANT(e.function().id() == ID_symbol, "function must be symbol");
   function_symbol=to_symbol_expr(e.function());
   const irep_idt &identifier=function_symbol.get_identifier();
 
@@ -103,8 +103,8 @@ void e_datat::setup(
   instructions.reserve(program_size);
   for(std::size_t pc=0; pc<program_size; pc++)
   {
-    instructions.push_back(instructiont(pc));
-    array_instructions.push_back(instructiont(pc));
+    instructions.push_back(instructiont(pc, *this));
+    array_instructions.push_back(instructiont(pc, *this));
     auto &instruction=instructions[pc];
     auto &array_instruction=array_instructions[pc];
 
@@ -335,12 +335,6 @@ exprt e_datat::instructiont::constraint(
       {
         // push back parameter as base option
         result_expr=arguments[option.parameter_number];
-
-     /*   result_expr=array_of_exprt(constant_exprt("0", word_type),
-            array_typet(word_type, constant_exprt(
-                ARRAY_SIZE, unsignedbv_typet(32))));
-        result_expr=chain(option.sel,
-            arguments[option.parameter_number], result_expr);*/
       }
       break;  
 
@@ -373,7 +367,8 @@ exprt e_datat::instructiont::constraint(
 
           and_exprt bounds=and_exprt(
               binary_relation_exprt(
-                  op1, ID_lt, constant_exprt(ARRAY_SIZE, word_type)),
+                  op1, ID_lt, constant_exprt(
+                      std::to_string(edata_parent.array_size), word_type)),
               binary_relation_exprt(
                   op1, ID_ge, constant_exprt("0", word_type)));
 
@@ -391,7 +386,8 @@ exprt e_datat::instructiont::constraint(
           binary_expr.op1() = op1;
 
           bv_spect spec(op0.type());
-          if_exprt if_expr(op_divbyzero, constant_exprt(integer2string(spec.max_value()), op0.type()),
+          if_exprt if_expr(op_divbyzero, constant_exprt(
+              integer2string(spec.max_value()), op0.type()),
               binary_expr);
           result_expr = chain(option.sel, if_expr, result_expr);
         }
@@ -403,9 +399,12 @@ exprt e_datat::instructiont::constraint(
 
          binary_predicate_exprt shift_greater_than_width(ID_ge);
          shift_greater_than_width.op0()=op1;
-         shift_greater_than_width.op1()=constant_exprt(integer2string(to_unsignedbv_type(op0.type()).get_width()),op0.type());
+         shift_greater_than_width.op1()=constant_exprt(
+             integer2string(to_unsignedbv_type(
+                 op0.type()).get_width()), op0.type());
 
-         if_exprt if_expr(shift_greater_than_width, constant_exprt("0", op0.type()), shift_expr);
+         if_exprt if_expr(shift_greater_than_width,
+             constant_exprt("0", op0.type()), shift_expr);
          result_expr=chain(option.sel, if_expr, result_expr);
         }
         else
@@ -432,7 +431,7 @@ exprt e_datat::instructiont::constraint(
           option.operation == "forall_array_EQ")
       {
         assert(option.operand0 < array_results.size());
-        assert(ARRAY_SIZE_INT>=2);
+        assert(edata_parent.array_size>=2);
 
         const auto &op0 = array_results[option.operand0];
         // implement as loop with fixed bound.
@@ -452,7 +451,7 @@ exprt e_datat::instructiont::constraint(
             index_exprt(op0, constant_exprt("1", word_type)),
             comparator, op1));
 
-        for(int i = 2; i < ARRAY_SIZE_INT; i++)
+        for(int i = 2; i < edata_parent.array_size; i++)
         {
           exprt index_expr =
             index_exprt(op0, symbol_exprt(integer2string(i, 10), word_type));
@@ -475,20 +474,19 @@ exprt e_datat::instructiont::constraint(
       break;
     case optiont::ITE: // if-then-else
     {
-      assert(option.operand0<results.size());
-      assert(option.operand1<results.size());
-      assert(option.operand2<results.size());
+      assert(option.operand0 < results.size());
+      assert(option.operand1 < results.size());
+      assert(option.operand2 < results.size());
 
-      const auto &op0=results[option.operand0];
-      const auto &op1=results[option.operand1];
-      const auto &op2=results[option.operand2];
+      const auto &op0 = results[option.operand0];
+      const auto &op1 = results[option.operand1];
+      const auto &op2 = results[option.operand2];
 
-      exprt op0_conv=
-          (word_type.id()==ID_bool)?op0:
-          typecast_exprt(op0, bool_typet());
+      exprt op0_conv =
+        (word_type.id() == ID_bool) ? op0 : typecast_exprt(op0, bool_typet());
 
       if_exprt if_expr(op0_conv, op1, op2);
-      result_expr=chain(option.sel, if_expr, result_expr);
+      result_expr = chain(option.sel, if_expr, result_expr);
     }
     break;
 
@@ -527,10 +525,6 @@ exprt e_datat::result(const argumentst &arguments)
 
   for(std::size_t pc=0; pc<instructions.size(); pc++)
   {
-    argumentst args_with_consts(arguments);
-    copy(begin(literals), end(literals), back_inserter(args_with_consts));
-    exprt c=instructions[pc].constraint(
-      word_type, args_with_consts, results, array_results);
 
     // results vary by instance
     irep_idt result_identifier = id2string(identifier) + "_inst" +
@@ -544,10 +538,10 @@ exprt e_datat::result(const argumentst &arguments)
       irep_idt array_result_identifier=
               id2string(identifier)+"_inst"+std::to_string(instance_number)+
               "_array_result_"+std::to_string(pc);
-
       array_results[pc]=symbol_exprt(array_result_identifier,
-                array_typet(word_type,
-                    infinity_exprt(unsignedbv_typet(32))));
+          array_typet(word_type,
+              constant_exprt(
+                          std::to_string(array_size), unsignedbv_typet(32))));
     }
     assert(!results.empty());
   }
@@ -575,13 +569,13 @@ exprt e_datat::get_function(
 {
   assert(!instructions.empty());
 
-  std::vector<exprt> results;
-  results.resize(instructions.size(), nil_exprt());
-
   std::vector<exprt> array_results;
   array_results.resize(array_instructions.size(), nil_exprt());
 
-    for(std::size_t pc = 0; pc < array_instructions.size(); pc++)
+  std::vector<exprt> results;
+  results.resize(instructions.size(), nil_exprt());
+
+  for(std::size_t pc = 0; pc < array_instructions.size(); pc++)
   {
     const auto &array_instruction = array_instructions[pc];
     exprt &array_result = array_results[pc];
@@ -623,15 +617,9 @@ exprt e_datat::get_function(
       // selectors is true
       if(array_result.is_nil())
       {
-        std::cout<<"number fo array operands "<< has_array_operand<<std::endl;
         INVARIANT(
           has_array_operand > 0,
           "shouldn't get here if we have no array operands");
-        // don't allow zero arrays
-        /*array_result = array_of_exprt(
-          constant_exprt("0", word_type),
-          array_typet(
-            word_type, constant_exprt(ARRAY_SIZE, unsignedbv_typet(32))));*/
         for(std::size_t i = 0; i < parameter_types.size(); i++)
         {
           if(parameter_types[i].id() == ID_array)
@@ -765,7 +753,7 @@ exprt e_datat::get_function(
                   comparator,
                   op1));
 
-              for(int i = 2; i < ARRAY_SIZE_INT; i++)
+              for(int i = 2; i < array_size; i++)
               {
                 index_exprt index_expr(
                   op0, symbol_exprt(integer2string(i, 10), word_type));
@@ -837,26 +825,32 @@ exprt synth_encodingt::operator()(const exprt &expr)
 
     // apply recursively to arguments
     for(auto &op : tmp.arguments())
+    {
       op=(*this)(op);
+    }
 
+    DATA_INVARIANT(tmp.function().id()==ID_symbol, "function must be symbol");
     e_datat &e_data=e_data_map[to_symbol_expr(tmp.function())];
+    // TOOD: move this into constructor?
+    e_data.array_size=array_size;
     if(e_data.word_type.id().empty())
       e_data.literals=literals;
     exprt final_result = e_data(
       tmp,
       program_size,
       enable_bitwise,
-      enable_division,
-      has_array_operand,
-      operand_is_array);
+      enable_division);
 
     for(const auto &c : e_data.constraints)
+    {
+     // std::cout<<"Push back e_data_constraint "<< c.pretty()<<std::endl;
       constraints.push_back(c);
+    }
 
     return final_result;
   }
   else if(expr.id()==ID_symbol)
-  {
+  {   // std::cout<<"adding suffix to symbol "<< expr.pretty()<<std::endl;
     // add the suffix
     symbol_exprt tmp=to_symbol_expr(expr);
     tmp.set_identifier(id2string(tmp.get_identifier())+suffix);
@@ -898,3 +892,8 @@ solutiont synth_encodingt::get_solution(
   return result;
 }
 
+/*void synth_encodingt::clear()
+{
+  e_data_map.clear();
+  constraints.clear();
+}*/

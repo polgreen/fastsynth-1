@@ -69,6 +69,7 @@ decision_proceduret::resultt cegist::loop(
   unsigned iteration=0;
 
   std::size_t program_size=1;
+  learn.set_array_size(array_size);
 
   // now enter the CEGIS loop
   while(true)
