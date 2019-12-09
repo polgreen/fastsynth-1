@@ -236,8 +236,6 @@ int c_frontend(const cmdlinet &cmdline)
   else
     cegis.max_program_size=5; // default
 
-  cegis.incremental_solving=cmdline.isset("incremental");
-  cegis.use_simp_solver=cmdline.isset("simplifying-solver");
   cegis.enable_bitwise=!cmdline.isset("no-bitwise");\
   cegis.use_smt=cmdline.isset("smt");
   cegis.enable_division=cmdline.isset("enable-division");

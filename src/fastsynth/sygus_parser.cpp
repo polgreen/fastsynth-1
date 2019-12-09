@@ -368,3 +368,5 @@ void sygus_parsert::expand_function_applications(exprt &expr)
     }
   }
 }
+
+

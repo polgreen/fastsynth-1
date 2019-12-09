@@ -20,11 +20,12 @@ void verify_encodingt::check_function_bodies(
     }
   }
 }
-
+#include <iostream>
 void verify_encodingt::check_function_body(
   const mathematical_function_typet &signature,
   const exprt &expr)
 {
+  std::cout<<"checking function " << signature.pretty() << std::endl<< expr.pretty()<<std::endl;
   if(expr.id()==ID_symbol)
   {
     const irep_idt identifier=to_symbol_expr(expr).get_identifier();
