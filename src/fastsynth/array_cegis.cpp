@@ -61,16 +61,43 @@ void bound_array_exprs(exprt &expr, std::size_t length)
   if(expr.id()==ID_index)
   {
     array_typet array=to_array_type(to_index_expr(expr).array().type());
+    if(to_index_expr(expr).array().id()==ID_symbol)
+    {
 
-    irep_idt id=to_symbol_expr(to_index_expr(expr).array()).get_identifier();
+      irep_idt id=to_symbol_expr(to_index_expr(expr).array()).get_identifier();
     array_typet new_array(
         array.subtype(), constant_exprt(
             std::to_string(length), array.size().type()));
     symbol_exprt replacement_array_symbol(id, new_array);
-
     // change size of expr
-
     expr=index_exprt(replacement_array_symbol, to_index_expr(expr).index());
+    }
+    else if(to_index_expr(expr).array().id()==ID_with)
+    {
+     array_typet array_type=
+         to_array_type(
+             to_with_expr(to_index_expr(expr).array()).type());
+
+     array_typet new_array(
+                 array_type.subtype(), constant_exprt(
+                     std::to_string(length), array_type.size().type()));
+
+     to_with_expr(to_index_expr(expr).array()).type()=new_array;
+    }
+
+  }
+  else if(expr.id()==ID_with)
+  {
+    if(to_with_expr(expr).type().id()==ID_array)
+    {
+      array_typet array_type =
+          to_array_type(to_with_expr(expr).type());
+
+      array_typet new_array(
+          array_type.subtype(),
+          constant_exprt(std::to_string(length), array_type.size().type()));
+      to_with_expr(expr).type()=new_array;
+    }
   }
   else if(expr.id()==ID_array)
   {
@@ -154,12 +181,55 @@ void unbound_array_exprs(exprt &expr)
   }
 }
 
-void clear_cegis(cegist &cegis)
+
+void unwind_quantifiers(exprt &expr)
+{
+  for(exprt &op : expr.operands())
+    unwind_quantifiers(op);
+
+  if(expr.id()==ID_forall )
+    std::cout<<"FOUND FORALL "<< expr.pretty()<<std::endl;
+
+  if(expr.id()==ID_exists )
+    std::cout<<"FOUND EXISTS "<< expr.pretty()<<std::endl;
+
+}
+
+void set_new_array_size(
+    problemt &problem, cegist &cegis, std::size_t &array_size)
 {
   cegis.solution.functions.clear();
   cegis.solution.s_functions.clear();
-}
+  cegis.array_size = array_size;
 
+  // bound array length
+  for(auto &c : problem.constraints)
+  {
+    bound_array_exprs(c, array_size);
+    unwind_quantifiers(c);
+  }
+  for(auto &s : problem.side_conditions)
+  {
+    bound_array_exprs(s, array_size);
+    unwind_quantifiers(s);
+  }
+
+  // bound free variables
+  for(auto it = problem.free_variables.begin();
+       it != problem.free_variables.end();)
+  {
+    exprt copy = *it;
+    bound_array_exprs(copy, array_size);
+    if(copy != *it)
+    {
+      problem.free_variables.erase(it++);
+      problem.free_variables.insert(copy);
+    }
+    else
+      it++;
+  }
+
+}
 
 int run_array_cegis(problemt &problem, cegist &cegis)
 {
@@ -173,34 +243,11 @@ int run_array_cegis(problemt &problem, cegist &cegis)
       cegis.get_message_handler());
   full_array_verify.use_smt=true;
 
-  std::size_t array_size=4;
+  std::size_t array_size=1;
 
   while(array_size < ARRAY_SIZE_MAX)
   {
-    cegis.array_size=array_size;
-
-  // bound array length
-  for(auto &c : problem.constraints)
-    bound_array_exprs(c, array_size);
-  for(auto &s : problem.side_conditions)
-    bound_array_exprs(s, array_size);
-
-  // bound free variables
-  for(auto it=problem.free_variables.begin();
-      it!= problem.free_variables.end();)
-  {
-    exprt copy=*it;
-    bound_array_exprs(copy, array_size);
-    if(copy!=*it)
-    {
-      problem.free_variables.erase(it++);
-      problem.free_variables.insert(copy);
-    }
-    else
-      it++;
-  }
-
-  clear_cegis(cegis);
+    set_new_array_size(problem, cegis, array_size);
 
   // synthesise candidate for fixed array length
   switch(cegis(problem))

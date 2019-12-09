@@ -57,6 +57,7 @@ void verifyt::add_problem(
   verify_encodingt &verify_encoding,
   decision_proceduret &solver)
 {
+  debug()<<"ADDING VERIFICATION PROBLEM \n"<<eom;
   for(const auto &e : problem.side_conditions)
   {
     const exprt encoded=verify_encoding(e);

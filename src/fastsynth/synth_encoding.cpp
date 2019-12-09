@@ -46,7 +46,8 @@ exprt promotion(const exprt &expr, const typet &t)
   if(expr.type()==t)
     return expr;
 
-  // don't promote arrays
+  // promote width and type of arrays
+  // TODO: promote size and subtype of arrays.
   if(expr.type().id()==ID_array)
     return expr;
 
@@ -60,7 +61,7 @@ typet e_datat::compute_word_type()
   for(const auto & t : parameter_types)
     result=promotion(result, t);
 
-  if(result.id()==ID_array||result.id()==ID_array_of)
+  if(result.id()==ID_array || result.id()==ID_array_of)
     return result.subtype();
 
   return result;
@@ -153,8 +154,8 @@ void e_datat::setup(
 
     static const irep_idt ops[]=
       { ID_plus, ID_minus, ID_shl, ID_bitand, ID_bitor, ID_bitxor,
-        ID_le, ID_lt, ID_equal, ID_notequal, "max", "min", ID_div, ID_lshr, "array_element",
-    "forall_array_EQ",   "forall_array_LE", "forall_array_LT" };
+        ID_le, ID_lt, ID_equal, ID_notequal, "max", "min", ID_div, ID_lshr, "array_element"};
+  //  "forall_array_EQ",   "forall_array_LE", "forall_array_LT" };
    // static const irep_idt ops[]=
      ///     { ID_plus, ID_minus, ID_ashr, ID_shr, ID_bitor };
 

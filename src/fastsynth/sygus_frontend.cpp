@@ -2,6 +2,7 @@
 #include "sygus_parser.h"
 #include "cegis.h"
 #include "literals.h"
+#include "array_cegis.h"
 
 #include <util/cout_message.h>
 #include <util/namespace.h>
@@ -17,6 +18,7 @@
 
 #include <fstream>
 #include <chrono>
+
 
 int sygus_frontend(const cmdlinet &cmdline)
 {
@@ -73,9 +75,6 @@ int sygus_frontend(const cmdlinet &cmdline)
   else
     cegis.max_program_size=5; // default
 
-  cegis.incremental_solving=cmdline.isset("incremental");
-  cegis.use_simp_solver=cmdline.isset("simplifying-solver");
-  cegis.use_fm=cmdline.isset("fm");
   cegis.enable_bitwise=!cmdline.isset("no-bitwise");
   cegis.use_smt=cmdline.isset("smt");
   cegis.enable_division=cmdline.isset("enable-division");
@@ -90,18 +89,29 @@ int sygus_frontend(const cmdlinet &cmdline)
        id.second.type.id() != ID_mathematical_function &&
        id.second.definition.is_nil())
     {
-      problem.free_variables.insert(symbol_exprt(id.first, id.second.type));
+      exprt var=symbol_exprt(id.first, id.second.type);
+    //   bound_array_symbols(var, 2u);
+      problem.free_variables.insert(var);
+     // problem.free_variables.insert(symbol_exprt(id.first, id.second.type));
     }
   }
-  
+
+
   for(auto &c : problem.constraints)
     parser.expand_function_applications(c);
+
+  //for(auto &c : problem.constraints)
+   // bound_array_length(c, 2u);
 
   if(cmdline.isset("literals"))
     add_literals(problem);
 
   auto start_time=std::chrono::steady_clock::now();
 
+  if(true)
+    run_array_cegis(problem, cegis);
+  else
+  {
   switch(cegis(problem))
   {
   case decision_proceduret::resultt::D_SATISFIABLE:
@@ -139,6 +149,6 @@ int sygus_frontend(const cmdlinet &cmdline)
   case decision_proceduret::resultt::D_ERROR:
     return 1;
   }
-
+  }
   return 0;
 }

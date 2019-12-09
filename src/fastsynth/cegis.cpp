@@ -16,13 +16,13 @@ decision_proceduret::resultt cegist::operator()(
   std::unique_ptr<learnt> learner;
   std::unique_ptr<verifyt> verifier;
 
-  if((incremental_solving || use_simp_solver) && use_smt)
+ /* if((incremental_solving || use_simp_solver) && use_smt)
   {
     warning() << "WARNING: unable to use smt back end and incremental solving together\n"
               << "Using smt only" << eom;
     incremental_solving=false;
     use_simp_solver=false;
-  }
+  }*/
   if(logic=="LIA")
   {
     warning() << "WARNING: Linear Integer Arithmetic requires SMT backend. Using SMT back end" << eom;
@@ -31,13 +31,13 @@ decision_proceduret::resultt cegist::operator()(
     incremental_solving=false;
   }
 
-  if(incremental_solving)
+ /* if(incremental_solving)
   {
     status() << "** incremental CEGIS" << eom;
     learner=std::unique_ptr<learnt>(new incremental_solver_learnt(
       ns, problem, use_simp_solver, get_message_handler()));
   }
-  else
+  else*/
   {
     status() << "** non-incremental CEGIS" << eom;
     solver_learnt *l=new solver_learnt(
@@ -49,14 +49,13 @@ decision_proceduret::resultt cegist::operator()(
     learner=std::unique_ptr<learnt>(l);
   }
 
-  learner->enable_bitwise=enable_bitwise;
+  learner->enable_bitwise = enable_bitwise;
 
+  verifier =
+      std::unique_ptr<verifyt>(new verifyt(ns, problem, get_message_handler()));
 
-    verifier=std::unique_ptr<verifyt>(new verifyt(
-      ns, problem, get_message_handler()));
-
-  verifier->use_smt=use_smt;
-  verifier->logic=logic;
+  verifier->use_smt = use_smt;
+  verifier->logic = logic;
 
   return loop(problem, *learner, *verifier);
 }

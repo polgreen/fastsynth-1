@@ -9,8 +9,6 @@
 
 #define FASTSYNTH_OPTIONS \
    "(max-program-size):" \
-   "(incremental)" \
-   "(simplifying-solver)" \
    "(no-bitwise)" \
    "(verbosity):" \
    "(smt)" \
