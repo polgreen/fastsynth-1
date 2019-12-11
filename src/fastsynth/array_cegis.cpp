@@ -17,7 +17,7 @@
 
 #include <iostream>
 
-#define ARRAY_SIZE_MAX 20u
+#define ARRAY_SIZE_MAX 3u
 
 
 void bound_array_symbols(exprt &expr, std::size_t length)
