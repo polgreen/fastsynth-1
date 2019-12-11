@@ -13,32 +13,31 @@
 void sygus_parsert::setup_commands()
 {
   commands["set-logic"] = [this] {
-    if(smt2_tokenizer.next_token()!=smt2_tokenizert::SYMBOL)
+    if (smt2_tokenizer.next_token() != smt2_tokenizert::SYMBOL)
       throw error("expected a symbol after set-logic");
 
-    logic=smt2_tokenizer.get_buffer();
+    logic = smt2_tokenizer.get_buffer();
   };
 
   commands["synth-fun"] = [this] {
-    if(smt2_tokenizer.next_token()!=smt2_tokenizert::SYMBOL)
+    if (smt2_tokenizer.next_token() != smt2_tokenizert::SYMBOL)
       throw error("expected a symbol after synth-fun");
 
     // save the renaming map
     renaming_mapt old_renaming_map = renaming_map;
 
-    irep_idt id=smt2_tokenizer.get_buffer();
+    irep_idt id = smt2_tokenizer.get_buffer();
 
-    if(id_map.find(id)!=id_map.end())
+    if (id_map.find(id) != id_map.end())
       throw error() << "function `" << id << "' declared twice";
 
-    auto signature=(id=="inv-f")?
-      inv_function_signature() : function_signature_definition();
+    auto signature = (id == "inv-f") ? inv_function_signature() : function_signature_definition();
 
     // restore renamings
     std::swap(renaming_map, old_renaming_map);
 
     // we'll tweak the type in case there are no parameters
-    if(signature.type.id() != ID_mathematical_function)
+    if (signature.type.id() != ID_mathematical_function)
     {
       // turn into () -> signature.type
       signature.type = mathematical_function_typet({}, signature.type);
@@ -47,9 +46,9 @@ void sygus_parsert::setup_commands()
     NTDef_seq();
 
     auto f_it = id_map.emplace(
-      std::piecewise_construct,
-      std::forward_as_tuple(id),
-      std::forward_as_tuple(idt::VARIABLE, nil_exprt()));
+        std::piecewise_construct,
+        std::forward_as_tuple(id),
+        std::forward_as_tuple(idt::VARIABLE, nil_exprt()));
 
     f_it.first->second.type = signature.type;
     f_it.first->second.parameters = signature.parameters;
@@ -60,28 +59,28 @@ void sygus_parsert::setup_commands()
   commands["synth-inv"] = commands["synth-fun"];
 
   commands["declare-primed-var"] = [this] {
-    if(smt2_tokenizer.next_token()!=smt2_tokenizert::SYMBOL)
+    if (smt2_tokenizer.next_token() != smt2_tokenizert::SYMBOL)
       throw error("expected a symbol after declare-primed-var");
 
     irep_idt id = smt2_tokenizer.get_buffer();
-    irep_idt id_prime = smt2_tokenizer.get_buffer()+"!";
+    irep_idt id_prime = smt2_tokenizer.get_buffer() + "!";
     auto type = sort();
 
-    if(id_map.find(id)!=id_map.end())
+    if (id_map.find(id) != id_map.end())
       throw error("variable declared twice");
 
-    if(id_map.find(id_prime)!=id_map.end())
+    if (id_map.find(id_prime) != id_map.end())
       throw error("variable declared twice");
 
     id_map.emplace(
-      std::piecewise_construct,
-      std::forward_as_tuple(id),
-      std::forward_as_tuple(idt::VARIABLE, exprt(ID_nil, type)));
+        std::piecewise_construct,
+        std::forward_as_tuple(id),
+        std::forward_as_tuple(idt::VARIABLE, exprt(ID_nil, type)));
 
     id_map.emplace(
-      std::piecewise_construct,
-      std::forward_as_tuple(id_prime),
-      std::forward_as_tuple(idt::VARIABLE, exprt(ID_nil, type)));
+        std::piecewise_construct,
+        std::forward_as_tuple(id_prime),
+        std::forward_as_tuple(idt::VARIABLE, exprt(ID_nil, type)));
   };
 
   commands["constraint"] = [this] {
@@ -98,32 +97,32 @@ void sygus_parsert::setup_commands()
   };
 
   commands["check-synth"] = [this] {
-    action="check-synth";
+    action = "check-synth";
   };
 }
 
 sygus_parsert::signature_with_parameter_idst sygus_parsert::inv_function_signature()
 {
-  if(smt2_tokenizer.next_token()!=smt2_tokenizert::OPEN)
+  if (smt2_tokenizer.next_token() != smt2_tokenizert::OPEN)
     throw error("expected '(' at beginning of signature");
 
   mathematical_function_typet::domaint domain;
   std::vector<irep_idt> parameter_ids;
 
-  while(smt2_tokenizer.peek()!=smt2_tokenizert::CLOSE)
+  while (smt2_tokenizer.peek() != smt2_tokenizert::CLOSE)
   {
-    if(smt2_tokenizer.next_token()!=smt2_tokenizert::OPEN)
+    if (smt2_tokenizer.next_token() != smt2_tokenizert::OPEN)
       throw error("expected '(' at beginning of parameter");
 
-    if(smt2_tokenizer.next_token()!=smt2_tokenizert::SYMBOL)
+    if (smt2_tokenizer.next_token() != smt2_tokenizert::SYMBOL)
       throw error("expected symbol in parameter");
 
-    const irep_idt id=smt2_tokenizer.get_buffer();
+    const irep_idt id = smt2_tokenizer.get_buffer();
     const auto parameter_type = sort();
     domain.push_back(parameter_type);
     parameter_ids.push_back(id);
 
-    if(smt2_tokenizer.next_token()!=smt2_tokenizert::CLOSE)
+    if (smt2_tokenizer.next_token() != smt2_tokenizert::CLOSE)
       throw error("expected ')' at end of parameter");
   }
 
@@ -134,15 +133,15 @@ sygus_parsert::signature_with_parameter_idst sygus_parsert::inv_function_signatu
 }
 
 function_application_exprt sygus_parsert::apply_function_to_variables(
-  invariant_constraint_functiont function_type,
-  invariant_variablet var_use)
+    invariant_constraint_functiont function_type,
+    invariant_variablet var_use)
 {
   std::string suffix;
-  if(var_use == PRIMED)
+  if (var_use == PRIMED)
     suffix = "!";
 
   std::string id;
-  switch(function_type)
+  switch (function_type)
   {
   case PRE:
     id = "pre-f";
@@ -160,56 +159,56 @@ function_application_exprt sygus_parsert::apply_function_to_variables(
 
   auto f_it = id_map.find(id);
 
-  if(f_it == id_map.end())
+  if (f_it == id_map.end())
     throw error() << "undeclared function `" << id << '\'';
 
   const auto &f = f_it->second;
   DATA_INVARIANT(f.type.id() == ID_mathematical_function,
-    "functions must have function type");
+                 "functions must have function type");
   const auto &f_type = to_mathematical_function_type(f.type);
 
   exprt::operandst arguments;
   arguments.resize(f_type.domain().size());
 
-  assert(f.parameters.size()==f_type.domain().size());
+  assert(f.parameters.size() == f_type.domain().size());
 
   // get arguments
-  for(std::size_t i = 0; i < f_type.domain().size(); i++)
+  for (std::size_t i = 0; i < f_type.domain().size(); i++)
   {
     std::string var_id = id2string(f.parameters[i]) + suffix;
 
-    if(id_map.find(var_id) == id_map.end())
+    if (id_map.find(var_id) == id_map.end())
       throw error() << "use of undeclared variable `" << var_id << '\'';
 
     arguments[i] = symbol_exprt(var_id, f_type.domain()[i]);
   }
 
   return function_application_exprt(
-    symbol_exprt(id, f.type),
-    arguments,
-    f_type.codomain());
+      symbol_exprt(id, f.type),
+      arguments,
+      f_type.codomain());
 }
 
 void sygus_parsert::generate_invariant_constraints()
 {
   // pre-condition application
   function_application_exprt pre_f =
-    apply_function_to_variables(PRE, UNPRIMED);
+      apply_function_to_variables(PRE, UNPRIMED);
 
   // invariant application
   function_application_exprt inv =
-    apply_function_to_variables(INV, UNPRIMED);
+      apply_function_to_variables(INV, UNPRIMED);
 
   function_application_exprt primed_inv =
-    apply_function_to_variables(INV, PRIMED);
+      apply_function_to_variables(INV, PRIMED);
 
   // transition function application
   function_application_exprt trans_f =
-    apply_function_to_variables(TRANS, UNPRIMED);
+      apply_function_to_variables(TRANS, UNPRIMED);
 
   //post-condition function application
   function_application_exprt post_f =
-    apply_function_to_variables(POST, UNPRIMED);
+      apply_function_to_variables(POST, UNPRIMED);
 
   // create constraints
   implies_exprt pre_condition(pre_f, inv);
@@ -226,10 +225,10 @@ void sygus_parsert::generate_invariant_constraints()
 void sygus_parsert::NTDef_seq()
 {
   // it is not necessary to give a syntactic template
-  if(smt2_tokenizer.peek()!=smt2_tokenizert::OPEN)
+  if (smt2_tokenizer.peek() != smt2_tokenizert::OPEN)
     return;
 
-  while(smt2_tokenizer.peek()!=smt2_tokenizert::CLOSE)
+  while (smt2_tokenizer.peek() != smt2_tokenizert::CLOSE)
   {
     NTDef();
   }
@@ -239,7 +238,7 @@ void sygus_parsert::NTDef_seq()
 
 void sygus_parsert::GTerm_seq()
 {
-  while(smt2_tokenizer.peek()!=smt2_tokenizert::CLOSE)
+  while (smt2_tokenizer.peek() != smt2_tokenizert::CLOSE)
   {
     GTerm();
   }
@@ -248,20 +247,20 @@ void sygus_parsert::GTerm_seq()
 void sygus_parsert::NTDef()
 {
   // (Symbol Sort GTerm+)
-  if(smt2_tokenizer.next_token()!=smt2_tokenizert::OPEN)
+  if (smt2_tokenizer.next_token() != smt2_tokenizert::OPEN)
     throw error("NTDef must begin with '('");
 
-  if(smt2_tokenizer.peek()==smt2_tokenizert::OPEN)
+  if (smt2_tokenizer.peek() == smt2_tokenizert::OPEN)
     smt2_tokenizer.next_token(); // symbol might be in another set of parenthesis
 
-  if(smt2_tokenizer.next_token()!=smt2_tokenizert::SYMBOL)
+  if (smt2_tokenizer.next_token() != smt2_tokenizert::SYMBOL)
     throw error("NTDef must have a symbol");
 
   sort();
 
   GTerm_seq();
 
-  if(smt2_tokenizer.next_token()!=smt2_tokenizert::CLOSE)
+  if (smt2_tokenizer.next_token() != smt2_tokenizert::CLOSE)
     throw error("NTDef must end with ')'");
 }
 
@@ -269,7 +268,7 @@ void sygus_parsert::GTerm()
 {
   // production rule
 
-  switch(smt2_tokenizer.next_token())
+  switch (smt2_tokenizer.next_token())
   {
   case smt2_tokenizert::SYMBOL:
   case smt2_tokenizert::NUMERAL:
@@ -277,7 +276,7 @@ void sygus_parsert::GTerm()
     break;
 
   case smt2_tokenizert::OPEN:
-    while(smt2_tokenizer.peek()!=smt2_tokenizert::CLOSE)
+    while (smt2_tokenizer.peek() != smt2_tokenizert::CLOSE)
     {
       GTerm();
     }
@@ -293,73 +292,74 @@ void sygus_parsert::GTerm()
   }
 }
 
-void sygus_parsert::expand_function_applications(exprt &expr)
+void sygus_parsert::expand_function_applications(exprt &expr, bool update_identifiers)
 {
-  for(exprt &op : expr.operands())
-    expand_function_applications(op);
+  for (exprt &op : expr.operands())
+    expand_function_applications(op, update_identifiers);
 
-  if(expr.id()==ID_function_application)
+  if (expr.id() == ID_function_application)
   {
-    auto &app=to_function_application_expr(expr);
+    auto &app = to_function_application_expr(expr);
 
     // look it up
-    DATA_INVARIANT(app.function().id()==ID_symbol, "function must be symbol");
-    irep_idt identifier=to_symbol_expr(app.function()).get_identifier();
-    auto f_it=id_map.find(identifier);
+    DATA_INVARIANT(app.function().id() == ID_symbol, "function must be symbol");
+    irep_idt identifier = to_symbol_expr(app.function()).get_identifier();
+    auto f_it = id_map.find(identifier);
 
-    if(f_it!=id_map.end())
+    if (f_it != id_map.end())
     {
-      const auto &f=f_it->second;
+      const auto &f = f_it->second;
 
-      if(synth_fun_set.find(identifier)!=synth_fun_set.end())
+      if (synth_fun_set.find(identifier) != synth_fun_set.end())
       {
-        to_symbol_expr(app.function()).set_identifier("synth_fun::"+id2string(identifier));
+        if (update_identifiers)
+          to_symbol_expr(app.function()).set_identifier("synth_fun::" + id2string(identifier));
         return; // do not expand
       }
 
       DATA_INVARIANT(f.type.id() == ID_mathematical_function,
-        "functions must have function type");
+                     "functions must have function type");
       const auto &f_type = to_mathematical_function_type(f.type);
 
-      assert(f_type.domain().size()==
+      assert(f_type.domain().size() ==
              app.arguments().size());
 
       replace_symbolt replace_symbol;
 
       std::map<irep_idt, exprt> parameter_map;
-      for(std::size_t i=0; i<f_type.domain().size(); i++)
+      for (std::size_t i = 0; i < f_type.domain().size(); i++)
       {
         const auto &parameter_type = f_type.domain()[i];
         const auto &parameter_id = f.parameters[i];
 
         replace_symbol.insert(
-          symbol_exprt(parameter_id, parameter_type),
-          app.arguments()[i]);
+            symbol_exprt(parameter_id, parameter_type),
+            app.arguments()[i]);
       }
 
-      exprt body=f.definition;
+      exprt body = f.definition;
       replace_symbol(body);
       expand_function_applications(body);
-      expr=body;
+      expr = body;
     }
   }
-  else if(expr.id()==ID_symbol)
+  else if (expr.id() == ID_symbol)
   {
     // deal with defined symbols
 
     // look it up
-    irep_idt identifier=to_symbol_expr(expr).get_identifier();
-    auto f_it=id_map.find(identifier);
+    irep_idt identifier = to_symbol_expr(expr).get_identifier();
+    auto f_it = id_map.find(identifier);
 
-    if(f_it!=id_map.end())
+    if (f_it != id_map.end())
     {
-      if(synth_fun_set.find(identifier)!=synth_fun_set.end())
+      if (synth_fun_set.find(identifier) != synth_fun_set.end())
         return; // do not expand
 
-      const auto &f=f_it->second;
+      const auto &f = f_it->second;
 
-      if(f.definition.is_not_nil() &&
-         f.type.id() != ID_mathematical_function)
+      if (f.definition.is_not_nil() &&
+          f.type.id() != ID_mathematical_function)
       {
         expr = f.definition;
         // recursively!
@@ -368,5 +368,3 @@ void sygus_parsert::expand_function_applications(exprt &expr)
     }
   }
 }
-
-
