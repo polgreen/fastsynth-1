@@ -10,6 +10,8 @@
 
 #include "sygus_parser.h"
 #include <sstream>
+#include "cegis_types.h"
+#include <solvers/decision_procedure.h>
 
 std::string type2sygus(const typet &type);
 std::string expr2sygus(const exprt &expr);
@@ -18,19 +20,19 @@ class sygus_interfacet
 {
 public:
     // output sygus file
-    void doit(sygus_parsert &sygus_parser);
+    decision_proceduret::resultt doit(problemt &problem);
     std::string declare_vars;
     std::string synth_fun;
     std::string constraints;
     std::string logic;
-    void solve();
+    decision_proceduret::resultt solve();
+    void clear();
     std::map<irep_idt, exprt> result;
+    solutiont solution;
 
 protected:
-    void read_result(std::istream &in);
-    void build_query(sygus_parsert &sygus_parser);
-
-    void verify_solution(sygus_parsert &sygus_parser);
+    decision_proceduret::resultt read_result(std::istream &in);
+    void build_query(problemt &problem);
 };
 
 #endif /* SRC_FASTSYNTH_CVC4_INTERFACE_H_ */

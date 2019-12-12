@@ -3,7 +3,7 @@
 
 #include <set>
 #include <map>
-
+#include <solvers/smt2/smt2_parser.h>
 #include <util/std_expr.h>
 
 class problemt
@@ -12,12 +12,14 @@ public:
   std::set<exprt> free_variables;
   exprt::operandst side_conditions, constraints;
   std::set<constant_exprt> literals; /// Constant hints for solver.
+  smt2_parsert::id_mapt id_map;
+  std::set<irep_idt> synth_fun_set;
 };
 
 class solutiont
 {
 public:
-  #if 0
+#if 0
   struct functiont
   {
     mathematical_function_typet signature;
@@ -29,9 +31,9 @@ public:
 
   functionst functions;
   functionst s_functions; // symbolic encoding
-  #endif
+#endif
 
-  using functionst=std::map<symbol_exprt, exprt>;
+  using functionst = std::map<symbol_exprt, exprt>;
   functionst functions, s_functions;
 };
 

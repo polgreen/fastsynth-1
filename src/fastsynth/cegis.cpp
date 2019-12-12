@@ -3,7 +3,6 @@
 #include "solver_learn.h"
 #include "verify.h"
 
-
 #include <langapi/language_util.h>
 
 #include <util/simplify_expr.h>
@@ -11,27 +10,27 @@
 #include <memory>
 
 decision_proceduret::resultt cegist::operator()(
-  const problemt &problem)
+    const problemt &problem)
 {
   std::unique_ptr<learnt> learner;
   std::unique_ptr<verifyt> verifier;
 
- /* if((incremental_solving || use_simp_solver) && use_smt)
+  /* if((incremental_solving || use_simp_solver) && use_smt)
   {
     warning() << "WARNING: unable to use smt back end and incremental solving together\n"
               << "Using smt only" << eom;
     incremental_solving=false;
     use_simp_solver=false;
   }*/
-  if(logic=="LIA")
+  if (logic == "LIA")
   {
     warning() << "WARNING: Linear Integer Arithmetic requires SMT backend. Using SMT back end" << eom;
-    use_smt=true;
-    use_simp_solver=false;
-    incremental_solving=false;
+    use_smt = true;
+    use_simp_solver = false;
+    incremental_solving = false;
   }
 
- /* if(incremental_solving)
+  /* if(incremental_solving)
   {
     status() << "** incremental CEGIS" << eom;
     learner=std::unique_ptr<learnt>(new incremental_solver_learnt(
@@ -40,13 +39,13 @@ decision_proceduret::resultt cegist::operator()(
   else*/
   {
     status() << "** non-incremental CEGIS" << eom;
-    solver_learnt *l=new solver_learnt(
-      ns, problem, get_message_handler());
+    solver_learnt *l = new solver_learnt(
+        ns, problem, get_message_handler());
 
-    l->use_smt=use_smt;
-    l->logic=logic;
+    l->use_smt = use_smt;
+    l->logic = logic;
 
-    learner=std::unique_ptr<learnt>(l);
+    learner = std::unique_ptr<learnt>(l);
   }
 
   learner->enable_bitwise = enable_bitwise;
@@ -61,17 +60,17 @@ decision_proceduret::resultt cegist::operator()(
 }
 
 decision_proceduret::resultt cegist::loop(
-  const problemt &problem,
-  learnt &learn,
-  verifyt &verify)
+    const problemt &problem,
+    learnt &learn,
+    verifyt &verify)
 {
-  unsigned iteration=0;
+  unsigned iteration = 0;
 
-  std::size_t program_size=1;
+  std::size_t program_size = 1;
   learn.set_array_size(array_size);
 
   // now enter the CEGIS loop
-  while(true)
+  while (true)
   {
     iteration++;
     status() << blue << "** CEGIS iteration " << iteration << reset << eom;
@@ -80,33 +79,37 @@ decision_proceduret::resultt cegist::loop(
 
     learn.set_program_size(program_size);
 
-    switch(learn())
+    switch (learn())
     {
     case decision_proceduret::resultt::D_SATISFIABLE: // got candidate
+    {
+      std::map<symbol_exprt, exprt> old_functions;
+      old_functions.swap(solution.functions);
+
+      solution = learn.get_solution();
+
+      for (auto &f : solution.functions)
       {
-        std::map<symbol_exprt, exprt> old_functions;
-        old_functions.swap(solution.functions);
-
-        solution=learn.get_solution();
-
-        for(auto &f : solution.functions)
-          f.second=simplify_expr(f.second, ns);
-
-        if(old_functions==solution.functions)
-        {
-          error() << bold << "NO PROGRESS MADE" << reset << eom;
-          return decision_proceduret::resultt::D_ERROR;
-        }
+        f.second = simplify_expr(f.second, ns);
+        status() << "FIRST:" << f.first.pretty() << "\nSECOND: " << f.second.pretty() << eom;
       }
-      // proceed to verification phase
-      break;
+
+      if (old_functions == solution.functions)
+      {
+        error() << bold << "NO PROGRESS MADE" << reset << eom;
+        return decision_proceduret::resultt::D_ERROR;
+      }
+    }
+    // proceed to verification phase
+    break;
 
     case decision_proceduret::resultt::D_UNSATISFIABLE: // no candidate
-      if(program_size<max_program_size)
+      if (program_size < max_program_size)
       {
-        program_size+=1;
+        program_size += 1;
         status() << "Failed to get candidate; "
-                    "increasing program size to " << program_size << eom;
+                    "increasing program size to "
+                 << program_size << eom;
         continue; // do another attempt to synthesize
       }
 
@@ -119,7 +122,7 @@ decision_proceduret::resultt cegist::loop(
 
     status() << "** Verification phase" << eom;
 
-    switch(verify(solution))
+    switch (verify(solution))
     {
     case decision_proceduret::resultt::D_SATISFIABLE: // counterexample
       status() << "** Verification failed" << eom;
@@ -137,4 +140,3 @@ decision_proceduret::resultt cegist::loop(
     }
   }
 }
-
