@@ -13,20 +13,19 @@ class prop_convt;
 class learnt;
 class verifyt;
 
-class cegist:public messaget
+class cegist : public messaget
 {
 public:
   // constructor
-  explicit cegist(const namespacet &_ns):
-    max_program_size(0),
-    incremental_solving(false),
-    use_simp_solver(false),
-    use_fm(false),
-    enable_bitwise(false),
-    use_smt(false),
-    logic("BV"),
-    array_size(10),
-    ns(_ns)
+  explicit cegist(const namespacet &_ns) : max_program_size(0),
+                                           incremental_solving(false),
+                                           use_simp_solver(false),
+                                           use_fm(false),
+                                           enable_bitwise(false),
+                                           use_smt(false),
+                                           logic("BV"),
+                                           array_size(10),
+                                           ns(_ns)
   {
   }
 
@@ -47,16 +46,15 @@ public:
   const namespacet &ns; // needed for array cegis loop
 
 protected:
-
   decision_proceduret::resultt loop(
-    const problemt &,
-    learnt &,
-    verifyt &);
+      const problemt &,
+      learnt &,
+      verifyt &);
 };
 
 void output_expressions(
-  const std::map<symbol_exprt, exprt> &,
-  const namespacet &,
-  std::ostream &);
+    const std::map<symbol_exprt, exprt> &,
+    const namespacet &,
+    std::ostream &);
 
 #endif /* CPROVER_FASTSYNTH_CEGIS_H_ */

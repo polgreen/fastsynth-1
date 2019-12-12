@@ -42,7 +42,33 @@ static std::string clean_id(const irep_idt &id)
   if (c_pos != std::string::npos &&
       dest.rfind("#") == c_pos)
     dest.erase(c_pos, std::string::npos);
+
+  std::string::size_type c_pos2 = dest.find("synth_fun::");
+  if (c_pos2 != std::string::npos &&
+      dest.rfind("synth_fun::") == c_pos2)
+    dest.erase(0, c_pos2 + 11);
+
   return dest;
+}
+
+void clean_symbols(exprt &expr)
+{
+  for (auto &op : expr.operands())
+    clean_symbols(op);
+
+  if (expr.id() == ID_symbol)
+  {
+    std::string new_id = clean_id(to_symbol_expr(expr).get_identifier());
+    std::string::size_type c_pos = new_id.find("parameter");
+
+    if (c_pos != std::string::npos &&
+        new_id.rfind("parameter") == c_pos)
+      new_id = "synth::" + new_id;
+    {
+      to_symbol_expr(expr).set_identifier(new_id);
+      return;
+    }
+  }
 }
 
 std::string expr2sygus(const exprt &expr)
@@ -114,7 +140,7 @@ std::string expr2sygus(const exprt &expr)
   else if (expr.id() == ID_function_application)
   {
     function_application_exprt fapp = to_function_application_expr(expr);
-    result += id2string(to_symbol_expr(fapp.function()).get_identifier()) + " ";
+    result += clean_id(to_symbol_expr(fapp.function()).get_identifier()) + " ";
     for (const auto &arg : fapp.arguments())
       result += expr2sygus(arg) + " ";
   }
@@ -144,7 +170,7 @@ std::string expr2sygus(const exprt &expr)
     }
     else if (to_constant_expr(expr).type().id() == ID_integer)
     {
-      return result = id2string(to_constant_expr(expr).get_value());
+      return result = clean_id(to_constant_expr(expr).get_value());
     }
     else
     {
@@ -161,10 +187,21 @@ std::string expr2sygus(const exprt &expr)
   return result;
 }
 
-void sygus_interfacet::build_query(sygus_parsert &sygus_parser)
+std::string remove_synth_prefix(std::string in)
+{
+  std::string::size_type c_pos2 = in.find("synth_fun::");
+  if (c_pos2 != std::string::npos &&
+      in.rfind("synth_fun::") == c_pos2)
+  {
+    in.erase(0, c_pos2);
+  }
+  return in;
+}
+
+void sygus_interfacet::build_query(problemt &problem)
 {
   logic = "(set-logic ALL)\n";
-  for (const auto &id : sygus_parser.id_map)
+  for (const auto &id : problem.id_map)
   {
     if (id.second.kind == smt2_parsert::idt::VARIABLE &&
         id.second.type.id() != ID_mathematical_function &&
@@ -175,40 +212,41 @@ void sygus_interfacet::build_query(sygus_parsert &sygus_parser)
     }
   }
 
-  for (const auto &f : sygus_parser.synth_fun_set)
+  for (const auto &f : problem.synth_fun_set)
   {
-    if (sygus_parser.id_map.find(f) == sygus_parser.id_map.end())
+    if (problem.id_map.find(f) == problem.id_map.end())
     {
       std::cout << "ERROR: did not find synth fun" << id2string(f) << std::endl;
       assert(0);
     }
     else
     {
-      symbol_exprt var = symbol_exprt(f, sygus_parser.id_map.at(f).type);
-      synth_fun += "(synth-fun " + expr2sygus(var) + "(";
+      symbol_exprt var = symbol_exprt(f, problem.id_map.at(f).type);
+      synth_fun += "(synth-fun " + remove_synth_prefix(expr2sygus(var)) + "(";
       std::size_t count = 0;
       for (const auto &d : to_mathematical_function_type(var.type()).domain())
       {
         synth_fun += "(parameter" + integer2string(count) + " " + type2sygus(d) + ")";
+        count++;
       }
       synth_fun += ")";
       synth_fun += type2sygus(to_mathematical_function_type(var.type()).codomain()) + ") \n";
     }
   }
 
-  for (const auto &f : sygus_parser.constraints)
+  for (const auto &f : problem.constraints)
   {
     constraints += "(constraint " + expr2sygus(f) + ")\n";
   }
 }
 
-void sygus_interfacet::doit(sygus_parsert &sygus_parser)
+decision_proceduret::resultt sygus_interfacet::doit(problemt &problem)
 {
-  build_query(sygus_parser);
-  solve();
+  build_query(problem);
+  return solve();
 }
 
-void sygus_interfacet::solve()
+decision_proceduret::resultt sygus_interfacet::solve()
 {
   std::string query = logic + declare_vars + synth_fun + constraints + "(check-synth)\n";
   std::cout
@@ -236,28 +274,33 @@ void sygus_interfacet::solve()
       run(argv[0], argv, stdin_filename, temp_file_stdout(), temp_file_stderr());
   if (res < 0)
   {
-    std::cerr << "error running sygus solver\n";
+    return decision_proceduret::resultt::D_ERROR;
   }
   else
   {
     std::ifstream in(temp_file_stdout());
-    read_result(in);
+    return read_result(in);
   }
 }
 
-void sygus_interfacet::read_result(std::istream &in)
+void sygus_interfacet::clear()
+{
+  constraints.clear();
+  declare_vars.clear();
+  synth_fun.clear();
+}
+decision_proceduret::resultt sygus_interfacet::read_result(std::istream &in)
 {
   if (!in)
   {
     std::cout << "Failed to open input file";
-    return;
+    return decision_proceduret::resultt::D_ERROR;
   }
   std::string firstline;
   std::getline(in, firstline);
   if (firstline == "unknown")
   {
-    std::cout << "Error: no solution\n";
-    assert(0);
+    return decision_proceduret::resultt::D_UNSATISFIABLE;
   }
   sygus_parsert result_parser(in);
   try
@@ -268,12 +311,22 @@ void sygus_interfacet::read_result(std::istream &in)
   {
     std::cout << e.get_line_no() << ": "
               << e.what() << std::endl;
-    assert(0);
+    return decision_proceduret::resultt::D_ERROR;
   }
-  assert(result_parser.id_map.size() != 0);
-  for (const auto &id : result_parser.id_map)
+  if (result_parser.id_map.size() == 0)
+    return decision_proceduret::resultt::D_ERROR;
+
+  for (auto &id : result_parser.id_map)
   {
     if (id.second.type.id() == ID_mathematical_function)
+    {
+      //  solution.functions[symbol_exprt(id.first, id.second.type))]
       result[id.first] = id.second.definition;
+      symbol_exprt symbol = symbol_exprt(to_mathematical_function_type(id.second.type));
+      symbol.set_identifier("synth_fun::" + clean_id(id.first));
+      clean_symbols(id.second.definition);
+      solution.functions[symbol] = id.second.definition;
+    }
   }
+  return decision_proceduret::resultt::D_SATISFIABLE;
 }

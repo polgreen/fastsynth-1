@@ -3,6 +3,8 @@
 #include "cegis.h"
 #include "literals.h"
 #include "array_cegis.h"
+#include "array_synth.h"
+#include <iostream>
 
 #include <util/cout_message.h>
 #include <util/namespace.h>
@@ -83,8 +85,11 @@ int sygus_frontend(const cmdlinet &cmdline)
   cegis.logic = parser.logic;
 
   problemt problem;
+  // for (auto &c : parser.constraints)
+  //   parser.expand_function_applications(c, false);
   problem.constraints = parser.constraints;
 
+  problem.id_map = parser.id_map;
   for (const auto &id : parser.id_map)
   {
     if (id.second.kind == smt2_parsert::idt::VARIABLE &&
@@ -95,35 +100,32 @@ int sygus_frontend(const cmdlinet &cmdline)
     }
   }
 
-  for (auto &c : problem.constraints)
-    parser.expand_function_applications(c);
-
-  sygus_interfacet sygus_if;
-  for (auto &c : parser.constraints)
-    parser.expand_function_applications(c, false);
-  sygus_if.doit(parser);
+  for (const auto &f : parser.synth_fun_set)
+    problem.synth_fun_set.insert(f);
   //return 0;
 
-  //for(auto &c : problem.constraints)
-  // bound_array_length(c, 2u);
+  for (auto &c : problem.constraints)
+    parser.expand_function_applications(c);
 
   if (cmdline.isset("literals"))
     add_literals(problem);
 
   auto start_time = std::chrono::steady_clock::now();
 
-  if (false)
-    run_array_cegis(problem, cegis);
+  if (cmdline.isset("arrays"))
+  {
+    array_syntht array_synth(cegis.get_message_handler());
+    array_synth.array_synth_loop(parser, problem);
+  }
   else
   {
     switch (cegis(problem))
     {
     case decision_proceduret::resultt::D_SATISFIABLE:
-
       for (const auto &f : cegis.solution.functions)
       {
-        std::string stripped_id =
-            std::string(id2string(f.first.get_identifier()), 11, std::string::npos);
+        std::string stripped_id = id2string(f.first.get_identifier());
+        //   std::string(id2string(f.first.get_identifier()), 11, std::string::npos);
 
         message.result() << "Result: "
                          << stripped_id
@@ -133,7 +135,7 @@ int sygus_frontend(const cmdlinet &cmdline)
 
         smt2_convt smt(ns, "", "", "", smt2_convt::solvert::Z3, message.result());
         message.result() << "SMT: "
-                         << f.first.get_identifier()
+                         << id2string(f.first.get_identifier())
                          << " -> ";
         smt.handle(f.second);
 

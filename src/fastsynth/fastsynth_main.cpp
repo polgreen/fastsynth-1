@@ -8,23 +8,24 @@
 #include "smt2_frontend.h"
 
 #define FASTSYNTH_OPTIONS \
-   "(max-program-size):" \
-   "(no-bitwise)" \
-   "(verbosity):" \
-   "(smt)" \
-   "(literals)" \
-   "(enable-division)" \
+  "(max-program-size):"   \
+  "(no-bitwise)"          \
+  "(verbosity):"          \
+  "(smt)"                 \
+  "(literals)"            \
+  "(enable-division)"     \
+  "(arrays)"
 
 int main(int argc, const char *argv[])
 {
   cmdlinet cmdline;
-  if(cmdline.parse(argc, argv, FASTSYNTH_OPTIONS))
+  if (cmdline.parse(argc, argv, FASTSYNTH_OPTIONS))
   {
     std::cerr << "Usage error\n";
     return 1;
   }
 
-  if(cmdline.args.size()!=1)
+  if (cmdline.args.size() != 1)
   {
     std::cerr << "Usage error\n";
     return 1;
@@ -32,18 +33,18 @@ int main(int argc, const char *argv[])
 
   try
   {
-    if(has_suffix(cmdline.args.back(), ".sl"))
+    if (has_suffix(cmdline.args.back(), ".sl"))
       return sygus_frontend(cmdline);
-    else if(has_suffix(cmdline.args.back(), ".smt2"))
+    else if (has_suffix(cmdline.args.back(), ".smt2"))
       return smt2_frontend(cmdline);
     else
       return c_frontend(cmdline);
   }
-  catch(const char *s)
+  catch (const char *s)
   {
     std::cerr << "Error: " << s << '\n';
   }
-  catch(const std::string &s)
+  catch (const std::string &s)
   {
     std::cerr << "Error: " << s << '\n';
   }
