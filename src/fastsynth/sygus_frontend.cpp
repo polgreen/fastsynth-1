@@ -111,11 +111,50 @@ int sygus_frontend(const cmdlinet &cmdline)
     add_literals(problem);
 
   auto start_time = std::chrono::steady_clock::now();
-
+  /// ARRAY SYNTHESIS
   if (cmdline.isset("arrays"))
   {
+    message.status() << "DOING ARRAY SYNTHESHS\n";
     array_syntht array_synth(cegis.get_message_handler());
-    array_synth.array_synth_loop(parser, problem);
+    switch (array_synth.array_synth_loop(parser, problem))
+    {
+    case decision_proceduret::resultt::D_SATISFIABLE:
+      for (const auto &f : array_synth.solution.functions)
+      {
+        std::string stripped_id = id2string(f.first.get_identifier());
+        //   std::string(id2string(f.first.get_identifier()), 11, std::string::npos);
+
+        message.result() << "Result: "
+                         << stripped_id
+                         << " -> "
+                         << from_expr(ns, "", f.second)
+                         << '\n';
+
+        smt2_convt smt(ns, "", "", "", smt2_convt::solvert::Z3, message.result());
+        message.result() << "SMT: "
+                         << id2string(f.first.get_identifier())
+                         << " -> ";
+        smt.handle(f.second);
+
+        message.result() << '\n';
+      }
+
+      message.result() << messaget::eom;
+
+      message.statistics() << "Synthesis time: "
+                           << std::chrono::duration<double>(
+                                  std::chrono::steady_clock::now() - start_time)
+                                  .count()
+                           << 's'
+                           << messaget::eom;
+      break;
+
+    case decision_proceduret::resultt::D_UNSATISFIABLE:
+      message.status() << "UNSATn array synth\n";
+    case decision_proceduret::resultt::D_ERROR:
+      message.status() << "ERROR array synth\n";
+      return 1;
+    }
   }
   else
   {

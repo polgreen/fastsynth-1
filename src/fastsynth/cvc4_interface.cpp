@@ -73,23 +73,49 @@ void clean_symbols(exprt &expr)
 
 std::string expr2sygus(const exprt &expr)
 {
-  std::string result = "(";
+  std::string result = /*id2string(expr.id()) + */ "(";
 
   if (expr.id() == ID_equal)
     result += "= " + expr2sygus(expr.op0()) + " " +
               expr2sygus(expr.op1());
   else if (expr.id() == ID_le)
-    result += "bvule " + expr2sygus(expr.op0()) + " " +
-              expr2sygus(expr.op1());
+  {
+    if (to_binary_relation_expr(expr).op0().id() == ID_typecast)
+    {
+      result += "bvsle " + expr2sygus(expr.op0()) + " " +
+                expr2sygus(expr.op1());
+    }
+    else
+      result += "bvule " + expr2sygus(expr.op0()) + " " +
+                expr2sygus(expr.op1());
+  }
   else if (expr.id() == ID_ge)
-    result += "bvuge" + expr2sygus(expr.op0()) + " " +
-              expr2sygus(expr.op1());
+  {
+    if (to_binary_relation_expr(expr).op0().id() == ID_typecast)
+      result += "bvsge " + expr2sygus(expr.op0()) + " " +
+                expr2sygus(expr.op1());
+    else
+      result += "bvuge " + expr2sygus(expr.op0()) + " " +
+                expr2sygus(expr.op1());
+  }
   else if (expr.id() == ID_lt)
-    result += "bvult " + expr2sygus(expr.op0()) + " " +
-              expr2sygus(expr.op1());
+  {
+    if (to_binary_relation_expr(expr).op0().id() == ID_typecast)
+      result += "bvslt " + expr2sygus(expr.op0()) + " " +
+                expr2sygus(expr.op1());
+    else
+      result += "bvult " + expr2sygus(expr.op0()) + " " +
+                expr2sygus(expr.op1());
+  }
   else if (expr.id() == ID_gt)
-    result += "bvugt" + expr2sygus(expr.op0()) + " " +
-              expr2sygus(expr.op1());
+  {
+    if (to_binary_relation_expr(expr).op0().id() == ID_typecast)
+      result += "bvsgt " + expr2sygus(expr.op0()) + " " +
+                expr2sygus(expr.op1());
+    else
+      result += "bvugt " + expr2sygus(expr.op0()) + " " +
+                expr2sygus(expr.op1());
+  }
   else if (expr.id() == ID_and)
     result += "and " + expr2sygus(expr.op0()) + " " +
               expr2sygus(expr.op1());
@@ -140,6 +166,11 @@ std::string expr2sygus(const exprt &expr)
   else if (expr.id() == ID_function_application)
   {
     function_application_exprt fapp = to_function_application_expr(expr);
+    if (fapp.function().id() != ID_symbol)
+    {
+      std::cout << "Unsupported function application " << expr.pretty() << std::endl;
+      assert(0);
+    }
     result += clean_id(to_symbol_expr(fapp.function()).get_identifier()) + " ";
     for (const auto &arg : fapp.arguments())
       result += expr2sygus(arg) + " ";
@@ -151,21 +182,29 @@ std::string expr2sygus(const exprt &expr)
   else if (expr.id() == ID_index)
   {
     index_exprt indx = to_index_expr(expr);
+    std::string array_string;
+    if (indx.array().id() != ID_symbol)
+      array_string = expr2sygus(indx.array());
+    else
+      array_string = id2string(to_symbol_expr(indx.array()).get_identifier());
+
     if (indx.index().id() != ID_infinity)
     {
       result += "select " +
-                clean_id(to_symbol_expr(indx.array()).get_identifier()) + " " + expr2sygus(indx.index());
+                clean_id(array_string) + " ";
+      if (indx.index().id() == ID_symbol || indx.index().id() == ID_constant)
+        result += expr2sygus(indx.index());
+      else
+        result += expr2sygus(indx.index());
     }
     else
-    {
-      return result = clean_id(to_symbol_expr(indx.array()).get_identifier());
-    }
+      return result = clean_id(array_string);
   }
   else if (expr.id() == ID_constant)
   {
     if (to_constant_expr(expr).type().id() == ID_unsignedbv)
     {
-      result += "_ bv" + id2string(to_constant_expr(expr).get_value()) +
+      result += "_ bv" + integer2string(string2integer(id2string(to_constant_expr(expr).get_value())), 16u) +
                 " " + integer2string(to_unsignedbv_type(to_constant_expr(expr).type()).get_width()) + "";
     }
     else if (to_constant_expr(expr).type().id() == ID_integer)
@@ -174,16 +213,53 @@ std::string expr2sygus(const exprt &expr)
     }
     else
     {
-      std::cout << "Unsupported" << expr.pretty() << std::endl;
+      std::cout << "Unsupported constant type" << expr.pretty() << std::endl;
       assert(0);
     }
   }
+  else if (expr.id() == ID_with)
+  {
+    result += "store " +
+              expr2sygus(to_with_expr(expr).old()) + " " +
+              expr2sygus(to_with_expr(expr).where()) + " " +
+              expr2sygus(to_with_expr(expr).new_value());
+  }
+  else if (expr.id() == ID_forall)
+  {
+    result += "forall (";
+    for (const auto &e : to_forall_expr(expr).variables())
+      result += "(" + expr2sygus(e) + " " + type2sygus(e.type()) + ")";
+    result += ") " + expr2sygus(to_forall_expr(expr).where());
+  }
+  else if (expr.id() == ID_exists)
+  {
+    result += "exists (";
+    for (const auto &e : to_forall_expr(expr).variables())
+      result += "(" + expr2sygus(e) + " " + type2sygus(e.type()) + ")";
+    result += ") " + expr2sygus(to_forall_expr(expr).where());
+  }
+  else if (expr.id() == ID_typecast)
+  {
+    // ignore typecast, they only occur when we use signed operators
+    // risky behaviour..
+    return expr2sygus(to_typecast_expr(expr).op());
+  }
+  else if (expr.id() == ID_extractbits)
+  {
+    const extractbits_exprt &extract = to_extractbits_expr(expr);
+    result = "(_ extract " + expr2sygus(extract.upper()) + " " + expr2sygus(extract.lower()) + ") " + expr2sygus(extract.src());
+  }
+  else if (expr.id() == ID_concatenation)
+  {
+    const concatenation_exprt &c = to_concatenation_expr(expr);
+    result += "concat " + expr2sygus(c.op0()) + " " + expr2sygus(c.op1());
+  }
   else
   {
-    std::cout << "Unsupported" << expr.pretty() << std::endl;
+    std::cout << "Unsupported expression type" << expr.pretty() << std::endl;
     assert(0);
   }
-  result += ")";
+  result += ")"; // + id2string(expr.id());
   return result;
 }
 
