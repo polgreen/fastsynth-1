@@ -21,7 +21,7 @@
 #include <fstream>
 #include <chrono>
 
-#include "cvc4_interface.h"
+#include "sygus_interface.h"
 
 int sygus_frontend(const cmdlinet &cmdline)
 {
