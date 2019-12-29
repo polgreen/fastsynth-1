@@ -1,24 +1,14 @@
 #include "verify.h"
 #include "array_synth.h"
+#include "bound_arrays.h"
 #include <util/namespace.h>
 #include <util/arith_tools.h>
 #include <util/symbol_table.h>
 #include <util/string2int.h>
-#define MAX_ARRAY_SIZE 3
+#define MAX_ARRAY_SIZE 4
 #include <iostream>
 #include <cmath>
-void array_syntht::update_biggest_array_access(const exprt &expr)
-{
-  if (expr.id() == ID_index)
-  {
-    if (to_index_expr(expr).index().id() != ID_constant)
-    {
-      int index_num = safe_string2unsigned(id2string(to_constant_expr(expr).get_value()), 16u);
-      if (index_num > biggest_array_access)
-        biggest_array_access = index_num;
-    }
-  }
-}
+#include "bitvector2integer.h"
 
 void replace_variable_with_constant(exprt &expr, irep_idt var_name, const exprt &replacement)
 {
@@ -29,6 +19,7 @@ void replace_variable_with_constant(exprt &expr, irep_idt var_name, const exprt 
     if (to_symbol_expr(expr).get_identifier() == var_name)
       expr = replacement;
 }
+
 // if a forall expression has only one variable, and that variable
 // is a small bitvector, attempts to replace the forall expr with
 // a conjunction
@@ -72,6 +63,8 @@ void replace_quantifier_with_conjunction(exprt &expr)
   }
 }
 
+// this changes the synthesis problem and shouldn't
+// really be done
 void remove_forall_quantifiers(exprt &expr)
 {
   for (auto &op : expr.operands())
@@ -83,159 +76,130 @@ void remove_forall_quantifiers(exprt &expr)
   }
 }
 
-// replace array index type with next biggest bitvector type
-void bound_array_types(typet &type, std::size_t &bound)
+void array_syntht::clear_array_index_search()
 {
-  if (type.id() == ID_array)
+  arrays_that_are_indexed.clear();
+  location_of_array_indices.clear();
+  quantifier_bindings.clear();
+}
+
+void array_syntht::find_array_indices(const exprt &expr,
+                                      const std::size_t &depth,
+                                      const std::size_t &distance_from_left)
+{
+  if (expr.id() == ID_index)
   {
-    array_typet array = to_array_type(type);
-    exprt new_size;
-    if (array.size().id() == ID_constant)
+    if (to_index_expr(expr).index().id() == ID_constant)
     {
-      std::cout << "were we expecting this??\n"
-                << type.pretty() << std::endl;
+      arrays_that_are_indexed.push_back(to_symbol_expr(to_index_expr(expr).array()).get_identifier());
+      location_of_array_indices.push_back(std::pair<int, int>(depth, distance_from_left));
+      std::string id = "local_var" + std::to_string(arrays_that_are_indexed.size());
+      quantifier_bindings.push_back(symbol_exprt(id, to_index_expr(expr).index().type()));
     }
-    else
-    {
-      if (array.size().type().id() == ID_unsignedbv)
-      {
-        // std::size_t width = to_unsignedbv_type(array.size().type()).get_width();
-        new_size = infinity_exprt(unsignedbv_typet(bound));
-      }
-      // assume array size is an infinity exprt of a given type
-    }
-    type = array_typet(to_array_type(type).subtype(), new_size);
   }
-  else if (type.id() == ID_mathematical_function)
+
+  int distance = 0;
+  for (const auto &op : expr.operands())
   {
-    mathematical_function_typet math_fun = to_mathematical_function_type(type);
-    bound_array_types(math_fun.codomain(), bound);
-    for (auto &arg : math_fun.domain())
-      bound_array_types(arg, bound);
-    type = math_fun;
+    find_array_indices(op, depth + 1, distance);
+    distance++;
   }
 }
 
-void bound_array_exprs(exprt &expr, std::size_t bound)
+bool array_syntht::check_array_indices(const exprt &expr,
+                                       const std::size_t &depth,
+                                       const std::size_t &distance_from_left,
+                                       std::size_t &vector_idx)
 {
+  if (expr.id() == ID_index)
+  {
+    if (to_index_expr(expr).index().id() == ID_constant)
+    {
+      if (vector_idx > location_of_array_indices.size())
+      {
+        status() << "Found an extra array index " << expr.pretty() << eom;
+        return false;
+      }
+
+      if (to_symbol_expr(to_index_expr(expr).array()).get_identifier() != arrays_that_are_indexed[vector_idx] ||
+          location_of_array_indices[vector_idx].first != depth || location_of_array_indices[vector_idx].second != distance_from_left)
+      {
+        status() << "Did not match array indices" << expr.pretty() << eom;
+        return false;
+      }
+      else
+      {
+        vector_idx++;
+      }
+    }
+  }
+  int distance = 0;
+  for (const auto &op : expr.operands())
+  {
+    if (!check_array_indices(op, depth + 1, distance, vector_idx))
+      return false;
+    distance++;
+  }
+  return true;
+}
+
+void array_syntht::replace_array_indices_with_local_vars(exprt &expr, std::size_t &vector_idx)
+{
+  if (expr.id() == ID_index)
+  {
+    assert(vector_idx < arrays_that_are_indexed.size());
+    index_exprt new_expr(to_index_expr(expr).array(), quantifier_bindings[vector_idx]);
+    vector_idx++;
+  }
+
   for (auto &op : expr.operands())
-    bound_array_exprs(op, bound);
+  {
+    replace_array_indices_with_local_vars(op, vector_idx);
+  }
+}
 
-  if (expr.id() == ID_array)
+// this does some kind of reverse quantifier instantiation
+void array_syntht::add_quantifiers_back(exprt &expr)
+{
+  for (auto &o : expr.operands())
+    add_quantifiers_back(o);
+  /*
+    we can replace conjunctions with quantifiers if the following hold:
+    - is a conjunction of predicates
+    - each predicate is the same
+    - each predicate takes an array index expr as an argument
+    - the array that is indexed is the same
+    - the index is a constant and all possible indices of that array must be covered
+  */
+  // if this is not a conjunction it can't be replaced with a forall.
+  if (expr.id() == ID_and)
   {
-    array_typet &array_type = to_array_expr(expr).type();
-    bound_array_types(array_type, bound);
-    expr = array_exprt(to_array_expr(expr).operands(), array_type);
-  }
-  else if (expr.id() == ID_symbol)
-  {
-    if (expr.type().id() == ID_array)
+    //int i = 0;
+    bool replace_with_quant = true;
+
+    exprt predicate;
+    std::vector<int> indices;
+    auto &operands = to_and_expr(expr).operands();
+    assert(operands.size() != 0);
+    find_array_indices(operands[0], 0, 0);
+
+    std::size_t vector_idx = 0;
+    std::size_t depth = 0;
+    for (std::size_t i = 1; i < operands.size(); i++)
+      if (!check_array_indices(operands[i], depth, i - 1, vector_idx))
+        replace_with_quant = false;
+
+    if (replace_with_quant)
     {
-      array_typet &array_type = to_array_type(expr.type());
-      bound_array_types(array_type, bound);
-      expr = symbol_exprt(to_symbol_expr(expr).get_identifier(), array_type);
-    }
-  }
-  else if (expr.id() == ID_nondet_symbol)
-  {
-    if (expr.type().id() == ID_array)
-    {
-      array_typet &array_type = to_array_type(expr.type());
-      bound_array_types(array_type, bound);
-      expr = nondet_symbol_exprt(to_nondet_symbol_expr(expr).get_identifier(), array_type);
-    }
-  }
-  else if (expr.id() == ID_index)
-  {
-    // bound array
-    bound_array_exprs(to_index_expr(expr).array(), bound);
-    // bound index
-    exprt index = to_index_expr(expr).index();
-    if (index.id() == ID_constant && index.type().id() == ID_unsignedbv)
-    {
-      index = constant_exprt(to_constant_expr(index).get_value(), unsignedbv_typet(bound));
-    }
-    else if (index.id() == ID_symbol)
-    {
-      // this gets complicated, we now need to change the type of the symbol
-      if (to_symbol_expr(index).type().id() == ID_unsignedbv)
-      {
-        std::size_t width = to_unsignedbv_type(to_symbol_expr(index).type()).get_width();
-        if (width > bound)
-        {
-          auto upper_e = from_integer(bound - 1, integer_typet());
-          auto lower_e = from_integer(0, integer_typet());
-          extractbits_exprt extract = extractbits_exprt(index, upper_e, lower_e, unsignedbv_typet(bound));
-          index = extract;
-        }
-        else if (width < bound)
-        {
-          concatenation_exprt concat = concatenation_exprt(constant_exprt("0", unsignedbv_typet(bound - width)), index, unsignedbv_typet(bound));
-          index = concat;
-        }
-      }
-    }
-    else if (index.id() == ID_concatenation)
-    {
-      std::cout << "concat index before " << index.pretty() << std::endl;
-      bound_array_exprs(to_concatenation_expr(index).op1(), bound);
-      std::cout << "index after" << index.pretty() << std::endl;
-    }
-    else if (index.id() == ID_extractbits)
-    {
-      bound_array_exprs(to_extractbits_expr(index).src(), bound);
+      status() << "REPLACING WITH  QUANTIFIER" << eom;
+      // actually build the quantifier expression
+      std::size_t vector_idx = 0;
+      replace_array_indices_with_local_vars(operands[0], vector_idx);
+      quantifier_exprt new_expr("ID_forall", quantifier_bindings, operands[0]);
+      expr = new_expr;
     }
     else
-    {
-
-      std::cout << "Unsupported array index type " << index.pretty() << std::endl;
-      assert(0);
-    }
-    expr = index_exprt(to_index_expr(expr).array(), index);
-  }
-  else if (expr.id() == ID_with)
-  {
-    exprt index = to_with_expr(expr).where();
-
-    if (index.id() == ID_constant && index.type().id() == ID_unsignedbv)
-    {
-      index = constant_exprt(to_constant_expr(index).get_value(), unsignedbv_typet(bound));
-    }
-    else if (index.id() == ID_symbol)
-    {
-      // this gets complicated, we now need to change the type of the symbol
-      if (to_symbol_expr(index).type().id() == ID_unsignedbv)
-      {
-        std::size_t width = to_unsignedbv_type(to_symbol_expr(index).type()).get_width();
-        if (width > bound)
-        {
-          auto upper_e = from_integer(bound - 1, integer_typet());
-          auto lower_e = from_integer(0, integer_typet());
-          extractbits_exprt extract = extractbits_exprt(index, upper_e, lower_e, unsignedbv_typet(bound));
-          index = extract;
-        }
-        else if (width < bound)
-        {
-          concatenation_exprt concat = concatenation_exprt(constant_exprt("0", unsignedbv_typet(bound - width)), index, unsignedbv_typet(bound));
-          index = concat;
-        }
-      }
-    }
-    else if (index.id() == ID_concatenation)
-    {
-      bound_array_exprs(to_concatenation_expr(index).op1(), bound);
-    }
-    else if (index.id() == ID_extractbits)
-    {
-      bound_array_exprs(to_extractbits_expr(index).src(), bound);
-    }
-    else
-    {
-
-      std::cout << "Unsupported array index type " << index.pretty() << std::endl;
-      assert(0);
-    }
-    expr = with_exprt(to_with_expr(expr).old(), index, to_with_expr(expr).new_value());
+      std::cout << "Did not replace with quant: " << expr.pretty() << std::endl;
   }
 }
 
@@ -243,6 +207,14 @@ void array_syntht::unbound_arrays_in_solution(solutiont &solution)
 {
   for (auto &e : solution.functions)
     bound_array_exprs(e.second, original_word_length);
+
+  status() << "Unbounded solutions:";
+  for (auto &e : solution.functions)
+  {
+    status() << "Convert this: " << expr2sygus(e.second, false);
+    add_quantifiers_back(e.second);
+    status() << " to " << expr2sygus(e.second, false) << eom;
+  }
 }
 
 void array_syntht::bound_arrays(problemt &problem, std::size_t bound)
@@ -257,34 +229,158 @@ void array_syntht::bound_arrays(problemt &problem, std::size_t bound)
   }
 
   for (auto &c : problem.constraints)
-    remove_forall_quantifiers(c);
-  //replace_quantifier_with_conjunction(c);
+    //  remove_forall_quantifiers(c);
+    replace_quantifier_with_conjunction(c);
+}
+
+void fix_function_types(exprt &body, const std::vector<typet> &domain)
+{
+  for (auto &op : body.operands())
+    fix_function_types(op, domain);
+
+  if (body.id() == ID_symbol)
+  {
+    const irep_idt id = to_symbol_expr(body).get_identifier();
+    if (id == "synth::parameter0")
+      body = symbol_exprt(id, domain[0]);
+    else if (id == "synth::parameter1")
+      body = symbol_exprt(id, domain[1]);
+    else if (id == "synth::parameter2")
+      body = symbol_exprt(id, domain[2]);
+    else if (id == "synth::parameter3")
+      body = symbol_exprt(id, domain[3]);
+    else if (id == "synth::parameter4")
+      body = symbol_exprt(id, domain[4]);
+    else
+      std::cout << "Unsupported parameter " << id << std::endl;
+  }
+  else if (body.id() == ID_constant)
+  {
+    if (body.type().id() == ID_integer)
+    {
+      body = constant_exprt(to_constant_expr(body).get_value(), unsignedbv_typet(32));
+    }
+  }
+  else if (body.id() == ID_infinity)
+  {
+    body = infinity_exprt(unsignedbv_typet(32));
+  }
+  else if (body.id() == ID_index)
+  {
+    // fix types in array
+    fix_function_types(to_index_expr(body).array(), domain);
+    // fix types in index
+    exprt index = to_index_expr(body).index();
+    if (index.id() == ID_constant && index.type().id() == ID_unsignedbv)
+    {
+      index = constant_exprt(to_constant_expr(index).get_value(), unsignedbv_typet(32));
+    }
+    else if (index.id() == ID_symbol)
+    {
+      index = symbol_exprt(to_symbol_expr(index).get_identifier(), unsignedbv_typet(32));
+    }
+    body = index_exprt(to_index_expr(body).array(), index);
+    if (body.type().id() == ID_integer)
+      std::cout << "integer " << body.pretty() << std::endl;
+  }
+}
+
+solutiont array_syntht::fix_types(const problemt &problem, solutiont &solution)
+{
+  // fix types of a solution to match the problem
+  solutiont new_solution;
+  for (auto &f : solution.functions)
+  {
+    irep_idt id = clean_id(to_symbol_expr(f.first).get_identifier());
+    std::cout << "Tring to convert function " << id2string(id) << std::endl;
+    symbol_exprt intended_signature = symbol_exprt(id, problem.id_map.at(id).type);
+    std::vector<typet>
+        intended_domain = to_mathematical_function_type(intended_signature.type()).domain();
+    fix_function_types(f.second, intended_domain);
+    new_solution.functions[intended_signature] = f.second;
+  }
+  return new_solution;
+}
+
+decision_proceduret::resultt array_syntht::array_synth_with_ints_loop(sygus_parsert &parser, problemt &problem)
+{
+  status() << "Array synth with integers" << eom;
+  symbol_tablet symbol_table;
+  namespacet ns(symbol_table);
+  problemt original_problem = problem;
+
+  verifyt verify(ns, original_problem, get_message_handler());
+
+  // convert to integers
+  status() << "Converting to integers " << eom;
+  bitvec2integert bvconv;
+
+  for (auto &c : problem.constraints)
+    bvconv.convert(c);
+
+  for (auto &id : problem.id_map)
+  {
+    bvconv.convert(id.second.type);
+    bvconv.convert(id.second.definition);
+    std::cout << "ID map " << id2string(id.first) << " " << id.second.type.pretty() << " " << id.second.definition.pretty() << std::endl;
+  }
+
+  if (sygus_interface.doit(problem, true) == decision_proceduret::resultt::D_SATISFIABLE)
+  {
+    status() << "Got integer solution :";
+    for (const auto &f : sygus_interface.solution.functions)
+      status() << expr2sygus(f.second) << eom;
+    // convert back to bitvectors
+    status() << "Converting back to bitvectors " << eom;
+    solutiont fixedsolution = fix_types(original_problem, sygus_interface.solution);
+    status() << "Verification" << eom;
+    switch (verify(fixedsolution))
+    {
+    case decision_proceduret::resultt::D_SATISFIABLE:
+    {
+      status() << "SAT, got counterexample.\n";
+      counterexamplet cex = verify.get_counterexample();
+      for (const auto &ass : cex.assignment)
+      {
+        status() << "ASSIGNMENT" << ass.first.pretty() << "::\n";
+        status() << ass.second.pretty() << "\n";
+      }
+    }
+    break;
+    case decision_proceduret::resultt::D_UNSATISFIABLE:
+      status() << "UNSAT, got solution \n ";
+      solution = sygus_interface.solution;
+      return decision_proceduret::resultt::D_SATISFIABLE;
+    case decision_proceduret::resultt::D_ERROR:
+      status() << "ERROR ";
+      break;
+    }
+  }
+  return decision_proceduret::resultt::D_ERROR;
 }
 
 decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parser, problemt &problem)
 {
+  // return array_synth_with_ints_loop(parser, problem);
+
   std::size_t array_size = 2;
   symbol_tablet symbol_table;
   namespacet ns(symbol_table);
   problemt local_problem = problem;
 
   verifyt verify(ns, local_problem, get_message_handler());
-
-  // try full length first:
-  // if (sygus_interface.doit(problem) == decision_proceduret::resultt::D_SATISFIABLE)
-  // {
-  //   solution = sygus_interface.solution;
-  //   //     return decision_proceduret::resultt::D_SATISFIABLE;
-  // }
+  verify.use_smt = true;
 
   // try removing quantifiers and nothing else;
-  for (auto &c : problem.constraints)
-    remove_forall_quantifiers(c);
-  sygus_interface.doit(problem);
+  //for (auto &c : problem.constraints)
+  // remove_forall_quantifiers(c);
+  //sygus_interface.doit(problem);
 
   while (array_size < MAX_ARRAY_SIZE)
   {
-    status() << "Starting to bound arrays to width " << array_size << eom;
+    problem = local_problem;
+    status()
+        << "Starting to bound arrays to width " << array_size << eom;
     bound_arrays(problem, array_size);
     sygus_interface.clear();
     status() << "Array size bounded to width " << array_size << eom;
@@ -297,31 +393,39 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
       array_size++;
       break;
     case decision_proceduret::resultt::D_SATISFIABLE:
-      status() << "Verifying solution from CVC4\n";
+      status() << "Verifying solution from CVC4\n"
+               << eom;
       unbound_arrays_in_solution(sygus_interface.solution);
+      status() << "About to verify \n"
+               << eom;
       switch (verify(sygus_interface.solution))
       {
       case decision_proceduret::resultt::D_SATISFIABLE:
       {
-        status() << "SAT, got counterexample.\n";
+        status() << "SAT, got counterexample.\n"
+                 << eom;
         counterexamplet cex = verify.get_counterexample();
         for (const auto &ass : cex.assignment)
         {
-          status() << "ASSIGNMENT" << ass.first.pretty() << "::\n";
-          status() << ass.second.pretty() << "\n";
+          status() << "ASSIGNMENT" << ass.first.pretty() << "::\n"
+                   << eom;
+          status() << ass.second.pretty() << "\n"
+                   << eom;
         }
+        sygus_interface.solution.functions.clear();
         array_size++;
       }
       break;
       case decision_proceduret::resultt::D_UNSATISFIABLE:
-        status() << "UNSAT, got solution \n ";
+        status() << "UNSAT, got solution \n " << eom;
         solution = sygus_interface.solution;
         return decision_proceduret::resultt::D_SATISFIABLE;
       case decision_proceduret::resultt::D_ERROR:
-        status() << "ERROR ";
+        status() << "ERROR " << eom;
         break;
       }
     }
   }
+  status() << "Reached max array size " << array_size << eom;
   return decision_proceduret::resultt::D_ERROR;
 }
