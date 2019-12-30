@@ -9,6 +9,7 @@
 #include <iostream>
 #include <cmath>
 #include "bitvector2integer.h"
+#include <algorithm>
 
 void replace_variable_with_constant(exprt &expr, irep_idt var_name, const exprt &replacement)
 {
@@ -23,10 +24,10 @@ void replace_variable_with_constant(exprt &expr, irep_idt var_name, const exprt 
 // if a forall expression has only one variable, and that variable
 // is a small bitvector, attempts to replace the forall expr with
 // a conjunction
-void replace_quantifier_with_conjunction(exprt &expr)
+void replace_quantifier_with_conjunction(exprt &expr, const std::size_t &bound)
 {
   for (auto &op : expr.operands())
-    replace_quantifier_with_conjunction(op);
+    replace_quantifier_with_conjunction(op, bound);
 
   if (expr.id() == ID_forall)
   {
@@ -39,14 +40,15 @@ void replace_quantifier_with_conjunction(exprt &expr)
       {
         std::cout << "var is a bitvector\n";
         const auto &bv = to_unsignedbv_type(var.type());
-        if (bv.get_width() < 4)
+        if (bv.get_width() < 4 || bound < 4)
         {
           std::cout << "and the width is less than 4\n";
           const forall_exprt &forall = to_forall_expr(expr);
           irep_idt var_id = var.get_identifier();
           exprt conjunction(ID_and, forall.type());
           exprt local_where = forall.where();
-          int number_of_options = std::pow(2, bv.get_width());
+
+          int number_of_options = std::pow(2, std::min(bv.get_width(), bound));
           for (int i = 0; i < number_of_options; i++)
           {
             replace_variable_with_constant(local_where, var_id, from_integer(i, var.type()));
@@ -149,6 +151,7 @@ void array_syntht::replace_array_indices_with_local_vars(exprt &expr, std::size_
   {
     assert(vector_idx < arrays_that_are_indexed.size());
     index_exprt new_expr(to_index_expr(expr).array(), quantifier_bindings[vector_idx]);
+    expr = new_expr;
     vector_idx++;
   }
 
@@ -195,7 +198,13 @@ void array_syntht::add_quantifiers_back(exprt &expr)
       // actually build the quantifier expression
       std::size_t vector_idx = 0;
       replace_array_indices_with_local_vars(operands[0], vector_idx);
-      quantifier_exprt new_expr("ID_forall", quantifier_bindings, operands[0]);
+      std::cout << "Making quantifier expression with following bindings: " << std::endl;
+      for (const auto &bind : quantifier_bindings)
+        std::cout << " " << bind.pretty() << std::endl;
+
+      std::cout << "And operand " << operands[0].pretty() << std::endl;
+      quantifier_exprt new_expr(ID_forall, quantifier_bindings, operands[0]);
+      std::cout << "Result: " << new_expr.pretty() << std::endl;
       expr = new_expr;
     }
     else
@@ -229,8 +238,7 @@ void array_syntht::bound_arrays(problemt &problem, std::size_t bound)
   }
 
   for (auto &c : problem.constraints)
-    //  remove_forall_quantifiers(c);
-    replace_quantifier_with_conjunction(c);
+    replace_quantifier_with_conjunction(c, bound);
 }
 
 void fix_function_types(exprt &body, const std::vector<typet> &domain)
@@ -393,6 +401,7 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
       array_size++;
       break;
     case decision_proceduret::resultt::D_SATISFIABLE:
+      clear_array_index_search();
       status() << "Verifying solution from CVC4\n"
                << eom;
       unbound_arrays_in_solution(sygus_interface.solution);
