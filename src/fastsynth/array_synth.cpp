@@ -382,7 +382,7 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
   // try removing quantifiers and nothing else;
   //for (auto &c : problem.constraints)
   // remove_forall_quantifiers(c);
-  //sygus_interface.doit(problem);
+  sygus_interface.doit(problem);
 
   while (array_size < MAX_ARRAY_SIZE)
   {
