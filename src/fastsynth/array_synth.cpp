@@ -220,6 +220,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
     std::vector<std::size_t> unmatching_exprs;
     for (std::size_t i = 1; i < operands.size(); i++)
     {
+      // reset vector indx before calling check_array_indices
       vector_idx = 0;
       if (!check_array_indices(operands[i], depth, i - 1, vector_idx))
         unmatching_exprs.push_back(i);
