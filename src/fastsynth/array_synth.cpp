@@ -31,18 +31,18 @@ void replace_quantifier_with_conjunction(exprt &expr, const std::size_t &bound)
 
   if (expr.id() == ID_forall)
   {
-    std::cout << "Trying to replace ID forall\n";
+    // std::cout << "Trying to replace ID forall\n";
     if (to_forall_expr(expr).variables().size() == 1)
     {
-      std::cout << "variables size is 1\n";
+      //  std::cout << "variables size is 1\n";
       auto &var = to_symbol_expr(to_forall_expr(expr).variables()[0]);
       if (var.type().id() == ID_unsignedbv)
       {
-        std::cout << "var is a bitvector\n";
+        //   std::cout << "var is a bitvector\n";
         const auto &bv = to_unsignedbv_type(var.type());
         if (bv.get_width() < 4 || bound < 4)
         {
-          std::cout << "and the width is less than 4\n";
+          // std::cout << "and the width is less than 4\n";
           const forall_exprt &forall = to_forall_expr(expr);
           irep_idt var_id = var.get_identifier();
           exprt conjunction(ID_and, forall.type());
@@ -56,8 +56,8 @@ void replace_quantifier_with_conjunction(exprt &expr, const std::size_t &bound)
             local_where = forall.where();
           }
           expr = conjunction;
-          std::cout << "expr should now be\n"
-                    << conjunction.pretty() << std::endl;
+          //     std::cout << "expr should now be\n"
+          //             << conjunction.pretty() << std::endl;
           ;
         }
       }
@@ -126,7 +126,8 @@ bool array_syntht::check_array_indices(const exprt &expr,
       if (to_symbol_expr(to_index_expr(expr).array()).get_identifier() != arrays_that_are_indexed[vector_idx] ||
           location_of_array_indices[vector_idx].first != depth || location_of_array_indices[vector_idx].second != distance_from_left)
       {
-        status() << "Did not match array indices" << expr.pretty() << eom;
+        status() << "Did not match array indices:\n"
+                 << expr.pretty() << eom;
         return false;
       }
       else
@@ -161,6 +162,36 @@ void array_syntht::replace_array_indices_with_local_vars(exprt &expr, std::size_
   }
 }
 
+// return true if expressions are the same except with different
+// array indices
+bool compare_expr(const exprt &expr1, const exprt &expr2)
+{
+  const auto &operands1 = expr1.operands();
+  const auto &operands2 = expr1.operands();
+  if (expr1 == expr2)
+    return true;
+  if (expr1.id() != expr2.id())
+    return false;
+  if (operands1.size() != operands2.size())
+    return false;
+
+  if (expr1.id() == ID_index)
+  {
+    const auto &array1 = to_index_expr(expr1);
+    const auto &array2 = to_index_expr(expr2);
+    // TODO handle this better
+    if (array1.array() == array2.array())
+      return true;
+  }
+
+  for (int i = 0; i < operands1.size(); i++)
+  {
+    if (!compare_expr(operands1[i], operands2[i]))
+      return false;
+  }
+  return true;
+}
+
 // this does some kind of reverse quantifier instantiation
 void array_syntht::add_quantifiers_back(exprt &expr)
 {
@@ -178,9 +209,6 @@ void array_syntht::add_quantifiers_back(exprt &expr)
   if (expr.id() == ID_and)
   {
     //int i = 0;
-    bool replace_with_quant = true;
-
-    exprt predicate;
     std::vector<int> indices;
     auto &operands = to_and_expr(expr).operands();
     assert(operands.size() != 0);
@@ -188,32 +216,56 @@ void array_syntht::add_quantifiers_back(exprt &expr)
 
     std::size_t vector_idx = 0;
     std::size_t depth = 0;
+    // find matching sets of exprs
+    std::vector<std::size_t> unmatching_exprs;
     for (std::size_t i = 1; i < operands.size(); i++)
-      if (!check_array_indices(operands[i], depth, i - 1, vector_idx))
-        replace_with_quant = false;
-
-    if (replace_with_quant)
     {
-      status() << "REPLACING WITH  QUANTIFIER" << eom;
-      // actually build the quantifier expression
+      if (!check_array_indices(operands[i], depth, i - 1, vector_idx))
+        unmatching_exprs.push_back(i);
+      else
+      {
+        if (!compare_expr(operands[i], operands[0]))
+          unmatching_exprs.push_back(i);
+      }
+    }
+
+    if (unmatching_exprs.size() == 0)
+    {
+      status() << "Replaced full conjunction" << eom;
+    }
+
+    // we know the length of the array so we could check that there's an expression for each array element
+    if (unmatching_exprs.size() < operands.size() - 1)
+    {
+      status() << "We matched some exprs but not all \n";
+      exprt result_expr;
       std::size_t vector_idx = 0;
       replace_array_indices_with_local_vars(operands[0], vector_idx);
-      std::cout << "Making quantifier expression with following bindings: " << std::endl;
-      for (const auto &bind : quantifier_bindings)
-        std::cout << " " << bind.pretty() << std::endl;
-
-      std::cout << "And operand " << operands[0].pretty() << std::endl;
       quantifier_exprt new_expr(ID_forall, quantifier_bindings, operands[0]);
-      std::cout << "Result: " << new_expr.pretty() << std::endl;
-      expr = new_expr;
+      result_expr = new_expr;
+
+      if (unmatching_exprs.size() > 0)
+      {
+        for (const auto &i : unmatching_exprs)
+        {
+          result_expr = and_exprt(result_expr, operands[i]);
+        }
+      }
+      expr = result_expr;
     }
-    else
-      std::cout << "Did not replace with quant: " << expr.pretty() << std::endl;
   }
 }
 
 void array_syntht::unbound_arrays_in_solution(solutiont &solution)
 {
+  status() << "Original solution ";
+  for (const auto &e : solution.functions)
+    status() << expr2sygus(e.second, false) << eom;
+
+  status() << "And in pretty print \n";
+  for (const auto &e : solution.functions)
+    status() << e.second.pretty() << eom;
+
   for (auto &e : solution.functions)
     bound_array_exprs(e.second, original_word_length);
 
@@ -288,8 +340,8 @@ void fix_function_types(exprt &body, const std::vector<typet> &domain)
       index = symbol_exprt(to_symbol_expr(index).get_identifier(), unsignedbv_typet(32));
     }
     body = index_exprt(to_index_expr(body).array(), index);
-    if (body.type().id() == ID_integer)
-      std::cout << "integer " << body.pretty() << std::endl;
+    // if (body.type().id() == ID_integer)
+    // std::cout << "integer " << body.pretty() << std::endl;
   }
 }
 
