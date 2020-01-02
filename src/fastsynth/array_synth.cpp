@@ -220,6 +220,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
     std::vector<std::size_t> unmatching_exprs;
     for (std::size_t i = 1; i < operands.size(); i++)
     {
+      vector_idx = 0;
       if (!check_array_indices(operands[i], depth, i - 1, vector_idx))
         unmatching_exprs.push_back(i);
       else
@@ -237,7 +238,8 @@ void array_syntht::add_quantifiers_back(exprt &expr)
     // we know the length of the array so we could check that there's an expression for each array element
     if (unmatching_exprs.size() < operands.size() - 1)
     {
-      status() << "We matched some exprs but not all \n";
+      std::cout << "We matched some exprs, but not all. Size of operands " << operands.size() << " and unmatched exprs " << unmatching_exprs.size() << std::endl;
+
       exprt result_expr;
       std::size_t vector_idx = 0;
       replace_array_indices_with_local_vars(operands[0], vector_idx);
