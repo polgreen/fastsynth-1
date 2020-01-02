@@ -95,7 +95,7 @@ void array_syntht::find_array_indices(const exprt &expr,
     {
       arrays_that_are_indexed.push_back(to_symbol_expr(to_index_expr(expr).array()).get_identifier());
       location_of_array_indices.push_back(std::pair<int, int>(depth, distance_from_left));
-      std::string id = "local_var" + std::to_string(arrays_that_are_indexed.size());
+      std::string id = "local_var0"; //+ std::to_string(arrays_that_are_indexed.size());
       quantifier_bindings.push_back(symbol_exprt(id, to_index_expr(expr).index().type()));
     }
   }
@@ -244,7 +244,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
       exprt result_expr;
       std::size_t vector_idx = 0;
       replace_array_indices_with_local_vars(operands[0], vector_idx);
-      quantifier_exprt new_expr(ID_forall, quantifier_bindings, operands[0]);
+      quantifier_exprt new_expr(ID_forall, quantifier_bindings[0], operands[0]);
       result_expr = new_expr;
 
       if (unmatching_exprs.size() > 0)
