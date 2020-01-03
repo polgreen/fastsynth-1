@@ -11,7 +11,8 @@ public:
     array_syntht(
         message_handlert &_message_handler) : messaget(_message_handler),
 
-                                              original_word_length(32u)
+                                              original_word_length(32u),
+                                              single_local_var(true)
     {
     }
     sygus_interfacet sygus_interface;
@@ -39,6 +40,7 @@ private:
     void replace_array_indices_with_local_vars(exprt &expr, std::size_t &vector_idx);
     // map of arrays beubg indexed to their index type
     std::map<irep_idt, typet> array_index_map;
+    bool single_local_var;
 
     // vector of symbol with the binary predicate that should be applied to them.
 };
