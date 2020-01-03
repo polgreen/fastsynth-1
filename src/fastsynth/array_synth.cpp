@@ -29,52 +29,32 @@ void replace_quantifier_with_conjunction(exprt &expr, const std::size_t &bound)
   for (auto &op : expr.operands())
     replace_quantifier_with_conjunction(op, bound);
 
-  if (expr.id() == ID_forall)
+  if (expr.id() == ID_forall || expr.id() == ID_exists)
   {
-    // std::cout << "Trying to replace ID forall\n";
-    if (to_forall_expr(expr).variables().size() == 1)
+    const quantifier_exprt &quant = to_quantifier_expr(expr);
+    if (quant.variables().size() == 1)
     {
-      //  std::cout << "variables size is 1\n";
-      auto &var = to_symbol_expr(to_forall_expr(expr).variables()[0]);
+      auto &var = to_symbol_expr(quant.variables()[0]);
       if (var.type().id() == ID_unsignedbv)
       {
-        //   std::cout << "var is a bitvector\n";
         const auto &bv = to_unsignedbv_type(var.type());
         if (bv.get_width() < 4 || bound < 4)
         {
-          // std::cout << "and the width is less than 4\n";
-          const forall_exprt &forall = to_forall_expr(expr);
           irep_idt var_id = var.get_identifier();
-          exprt conjunction(ID_and, forall.type());
-          exprt local_where = forall.where();
+          exprt result = (expr.id() == ID_forall) ? exprt(ID_and, quant.type()) : exprt(ID_or, quant.type());
+          exprt local_where = quant.where();
 
           int number_of_options = std::pow(2, std::min(bv.get_width(), bound));
           for (int i = 0; i < number_of_options; i++)
           {
             replace_variable_with_constant(local_where, var_id, from_integer(i, var.type()));
-            conjunction.operands().push_back(local_where);
-            local_where = forall.where();
+            result.operands().push_back(local_where);
+            local_where = quant.where();
           }
-          expr = conjunction;
-          //     std::cout << "expr should now be\n"
-          //             << conjunction.pretty() << std::endl;
-          ;
+          expr = result;
         }
       }
     }
-  }
-}
-
-// this changes the synthesis problem and shouldn't
-// really be done
-void remove_forall_quantifiers(exprt &expr)
-{
-  for (auto &op : expr.operands())
-    remove_forall_quantifiers(op);
-
-  if (expr.id() == ID_forall)
-  {
-    expr = to_forall_expr(expr).where();
   }
 }
 
@@ -95,7 +75,7 @@ void array_syntht::find_array_indices(const exprt &expr,
     {
       arrays_that_are_indexed.push_back(to_symbol_expr(to_index_expr(expr).array()).get_identifier());
       location_of_array_indices.push_back(std::pair<int, int>(depth, distance_from_left));
-      std::string id = "local_var0"; //+ std::to_string(arrays_that_are_indexed.size());
+      std::string id = "local_var" + (single_local_var ? "0" : std::to_string(arrays_that_are_indexed.size()));
       quantifier_bindings.push_back(symbol_exprt(id, to_index_expr(expr).index().type()));
     }
   }
@@ -205,12 +185,12 @@ void array_syntht::add_quantifiers_back(exprt &expr)
     - the array that is indexed is the same
     - the index is a constant and all possible indices of that array must be covered
   */
-  // if this is not a conjunction it can't be replaced with a forall.
-  if (expr.id() == ID_and)
+  // if this is not a conjunction or disjunction it can't be replaced with a forall.
+  if (expr.id() == ID_and || expr.id() == ID_or)
   {
     //int i = 0;
     std::vector<int> indices;
-    auto &operands = to_and_expr(expr).operands();
+    auto &operands = expr.operands();
     assert(operands.size() != 0);
     find_array_indices(operands[0], 0, 0);
 
@@ -231,27 +211,31 @@ void array_syntht::add_quantifiers_back(exprt &expr)
       }
     }
 
-    if (unmatching_exprs.size() == 0)
-    {
-      status() << "Replaced full conjunction" << eom;
-    }
-
     // we know the length of the array so we could check that there's an expression for each array element
     if (unmatching_exprs.size() < operands.size() - 1)
     {
-      std::cout << "We matched some exprs, but not all. Size of operands " << operands.size() << " and unmatched exprs " << unmatching_exprs.size() << std::endl;
-
       exprt result_expr;
       std::size_t vector_idx = 0;
       replace_array_indices_with_local_vars(operands[0], vector_idx);
-      quantifier_exprt new_expr(ID_forall, quantifier_bindings[0], operands[0]);
-      result_expr = new_expr;
+      if (single_local_var)
+      {
+        quantifier_exprt new_expr = (expr.id() == ID_and) ? quantifier_exprt(ID_forall, quantifier_bindings[0], operands[0]) : quantifier_exprt(ID_exists, quantifier_bindings[0], operands[0]);
+        result_expr = new_expr;
+      }
+      else
+      {
+        quantifier_exprt new_expr = (expr.id() == ID_and) ? quantifier_exprt(ID_forall, quantifier_bindings, operands[0]) : quantifier_exprt(ID_exists, quantifier_bindings, operands[0]);
+        result_expr = new_expr;
+      }
 
       if (unmatching_exprs.size() > 0)
       {
         for (const auto &i : unmatching_exprs)
         {
-          result_expr = and_exprt(result_expr, operands[i]);
+          if (expr.id() == ID_and)
+            result_expr = and_exprt(result_expr, operands[i]);
+          else
+            result_expr = or_exprt(result_expr, operands[i]);
         }
       }
       expr = result_expr;
