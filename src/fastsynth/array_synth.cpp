@@ -63,6 +63,25 @@ void array_syntht::clear_array_index_search()
   arrays_that_are_indexed.clear();
   location_of_array_indices.clear();
   quantifier_bindings.clear();
+  quantifier_index_adjustment.clear();
+  max_quantifier_adjustment = 0;
+}
+
+void array_syntht::normalise_quantifier_index_adjustments()
+{
+  if (quantifier_index_adjustment.size() == 0)
+    return;
+  mp_integer minimum = quantifier_index_adjustment[0];
+  for (const auto &i : quantifier_index_adjustment)
+    if (i < minimum)
+      minimum = i;
+
+  for (auto &i : quantifier_index_adjustment)
+  {
+    i = i - minimum;
+    if (i > max_quantifier_adjustment)
+      max_quantifier_adjustment = i;
+  }
 }
 
 void array_syntht::find_array_indices(const exprt &expr,
@@ -73,6 +92,11 @@ void array_syntht::find_array_indices(const exprt &expr,
   {
     if (to_index_expr(expr).index().id() == ID_constant)
     {
+      // find linear relation between indices
+      mp_integer value = 0;
+      INVARIANT(!to_integer(to_constant_expr(to_index_expr(expr).index()), value), "unable to get index value");
+      quantifier_index_adjustment.push_back(value);
+
       arrays_that_are_indexed.push_back(to_symbol_expr(to_index_expr(expr).array()).get_identifier());
       location_of_array_indices.push_back(std::pair<int, int>(depth, distance_from_left));
       std::string id = "local_var" + (single_local_var ? "0" : std::to_string(arrays_that_are_indexed.size()));
@@ -80,7 +104,7 @@ void array_syntht::find_array_indices(const exprt &expr,
     }
   }
 
-  int distance = 0;
+  std::size_t distance = 0;
   for (const auto &op : expr.operands())
   {
     find_array_indices(op, depth + 1, distance);
@@ -131,15 +155,24 @@ void array_syntht::replace_array_indices_with_local_vars(exprt &expr, std::size_
   if (expr.id() == ID_index)
   {
     assert(vector_idx < arrays_that_are_indexed.size());
-    index_exprt new_expr(to_index_expr(expr).array(), quantifier_bindings[vector_idx]);
-    expr = new_expr;
+    if (quantifier_index_adjustment[vector_idx] == 0)
+    {
+      index_exprt new_expr(to_index_expr(expr).array(), quantifier_bindings[vector_idx]);
+      expr = new_expr;
+    }
+    else
+    {
+      exprt adjusted_index = binary_exprt(quantifier_bindings[vector_idx], ID_plus,
+                                          from_integer(quantifier_index_adjustment[vector_idx],
+                                                       quantifier_bindings[vector_idx].type()));
+      index_exprt new_expr(to_index_expr(expr).array(), adjusted_index);
+      expr = new_expr;
+    }
     vector_idx++;
   }
 
   for (auto &op : expr.operands())
-  {
     replace_array_indices_with_local_vars(op, vector_idx);
-  }
 }
 
 // return true if expressions are the same except with different
@@ -177,6 +210,9 @@ void array_syntht::add_quantifiers_back(exprt &expr)
 {
   for (auto &o : expr.operands())
     add_quantifiers_back(o);
+
+  // clear quantifier search here?
+  clear_array_index_search();
   /*
     we can replace conjunctions with quantifiers if the following hold:
     - is a conjunction of predicates
@@ -193,6 +229,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
     auto &operands = expr.operands();
     assert(operands.size() != 0);
     find_array_indices(operands[0], 0, 0);
+    // normalise_quantifier_index_adjustments();
 
     std::size_t vector_idx = 0;
     std::size_t depth = 0;
@@ -217,14 +254,30 @@ void array_syntht::add_quantifiers_back(exprt &expr)
       exprt result_expr;
       std::size_t vector_idx = 0;
       replace_array_indices_with_local_vars(operands[0], vector_idx);
+      exprt &where = operands[0];
+      // TODO make this work for multiple variables
+      if (max_quantifier_adjustment > 0)
+      {
+        INVARIANT(single_local_var, "Not yet implemented: multiple local vars with adjustements");
+        // build implication which says that the property holds only if the local variables are within array bounds
+        exprt adjusted_index = binary_exprt(quantifier_bindings[0], ID_plus,
+                                            from_integer(max_quantifier_adjustment,
+                                                         quantifier_bindings[0].type()));
+
+        exprt is_less_than_bound = binary_predicate_exprt(adjusted_index, ID_lt, from_integer(max_array_index, quantifier_bindings[0].type()));
+        implies_exprt
+            implication(is_less_than_bound, operands[0]);
+        where = implication;
+      }
+
       if (single_local_var)
       {
-        quantifier_exprt new_expr = (expr.id() == ID_and) ? quantifier_exprt(ID_forall, quantifier_bindings[0], operands[0]) : quantifier_exprt(ID_exists, quantifier_bindings[0], operands[0]);
+        quantifier_exprt new_expr = (expr.id() == ID_and) ? quantifier_exprt(ID_forall, quantifier_bindings[0], where) : quantifier_exprt(ID_exists, quantifier_bindings[0], where);
         result_expr = new_expr;
       }
       else
       {
-        quantifier_exprt new_expr = (expr.id() == ID_and) ? quantifier_exprt(ID_forall, quantifier_bindings, operands[0]) : quantifier_exprt(ID_exists, quantifier_bindings, operands[0]);
+        quantifier_exprt new_expr = (expr.id() == ID_and) ? quantifier_exprt(ID_forall, quantifier_bindings, where) : quantifier_exprt(ID_exists, quantifier_bindings, where);
         result_expr = new_expr;
       }
 
@@ -245,14 +298,6 @@ void array_syntht::add_quantifiers_back(exprt &expr)
 
 void array_syntht::unbound_arrays_in_solution(solutiont &solution)
 {
-  status() << "Original solution ";
-  for (const auto &e : solution.functions)
-    status() << expr2sygus(e.second, false) << eom;
-
-  status() << "And in pretty print \n";
-  for (const auto &e : solution.functions)
-    status() << e.second.pretty() << eom;
-
   for (auto &e : solution.functions)
     bound_array_exprs(e.second, original_word_length);
 
@@ -267,17 +312,22 @@ void array_syntht::unbound_arrays_in_solution(solutiont &solution)
 
 void array_syntht::bound_arrays(problemt &problem, std::size_t bound)
 {
+  max_array_index = power(2, bound);
+
+  for (auto &c : problem.constraints)
+    replace_quantifier_with_conjunction(c, bound);
+
   for (auto &c : problem.constraints)
     bound_array_exprs(c, bound);
+
+  // for each constraint, we add an implication that the constraints only need to hold if
+  // the array indices are within bounds
 
   for (auto &id : problem.id_map)
   {
     bound_array_types(id.second.type, bound);
     bound_array_exprs(id.second.definition, bound);
   }
-
-  for (auto &c : problem.constraints)
-    replace_quantifier_with_conjunction(c, bound);
 }
 
 void fix_function_types(exprt &body, const std::vector<typet> &domain)
@@ -299,7 +349,7 @@ void fix_function_types(exprt &body, const std::vector<typet> &domain)
     else if (id == "synth::parameter4")
       body = symbol_exprt(id, domain[4]);
     else
-      std::cout << "Unsupported parameter " << id << std::endl;
+      std::cout << "Unsupported parameters " << id << std::endl;
   }
   else if (body.id() == ID_constant)
   {
@@ -410,7 +460,7 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
 {
   // return array_synth_with_ints_loop(parser, problem);
 
-  std::size_t array_size = 2;
+  std::size_t array_size = 1;
   symbol_tablet symbol_table;
   namespacet ns(symbol_table);
   problemt local_problem = problem;
@@ -440,7 +490,6 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
       array_size++;
       break;
     case decision_proceduret::resultt::D_SATISFIABLE:
-      clear_array_index_search();
       status() << "Verifying solution from CVC4\n"
                << eom;
       unbound_arrays_in_solution(sygus_interface.solution);
