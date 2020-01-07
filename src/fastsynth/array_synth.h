@@ -5,6 +5,25 @@
 #include "verify.h"
 #include <util/message.h>
 
+struct array_index_locst
+{
+    std::vector<irep_idt> names;
+    std::vector<std::pair<int, int>> locations;
+    std::vector<mp_integer> index_adjustments;
+    mp_integer max_index_adjustment;
+    std::vector<symbol_exprt> quantifier_bindings;
+};
+
+inline bool operator==(const array_index_locst &a, const array_index_locst &b)
+{
+    if (a.names != b.names)
+        return false;
+    if (a.locations != b.locations)
+        return false;
+    else
+        return true;
+};
+
 class array_syntht : public messaget
 {
 public:
@@ -25,6 +44,7 @@ public:
     void bound_array_types(typet &type, std::size_t &bound);
     void bound_array_exprs(exprt &expr, std::size_t bound);
     bool bound_bitvectors(exprt &expr, const std::size_t &bound);
+    void expand_let_expressions(exprt &expr);
 
 private:
     std::set<exprt> symbols_to_bound;
@@ -34,23 +54,19 @@ private:
     void unbound_arrays_in_solution(solutiont &solution);
     std::map<symbol_exprt, std::size_t> original_array_sizes;
     void add_quantifiers_back(exprt &expr);
-    void normalise_quantifier_index_adjustments();
+    void normalise_quantifier_index_adjustments(array_index_locst &loc);
 
-    // set of arrays that are indexed in an expr
-    std::set<irep_idt> arrays_being_indexed;
-    // location of array indices, stored as depth,distance_from_left
-    std::vector<irep_idt> arrays_that_are_indexed;
-
-    std::vector<std::pair<int, int>> location_of_array_indices;
-    std::vector<mp_integer> quantifier_index_adjustment;
-    mp_integer max_quantifier_adjustment;
+    std::vector<array_index_locst> array_index_locations;
 
     std::vector<symbol_exprt> quantifier_bindings;
-
+    std::vector<irep_idt> arrays_that_are_indexed;
+    std::vector<std::pair<int, int>> location_of_array_indices;
+    mp_integer max_quantifier_adjustment;
+    std::vector<mp_integer> quantifier_index_adjustment;
     void clear_array_index_search();
-    void find_array_indices(const exprt &expr, const std::size_t &depth, const std::size_t &distance_from_left);
-    bool check_array_indices(const exprt &expr, const std::size_t &depth, const std::size_t &distance_from_left, std::size_t &vector_idx);
-    void replace_array_indices_with_local_vars(exprt &expr, std::size_t &vector_idx);
+    void find_array_indices(const exprt &expr, const std::size_t &depth, const std::size_t &distance_from_left, bool top_expr);
+    // bool check_array_indices(const exprt &expr, const std::size_t &depth, const std::size_t &distance_from_left, std::size_t &vector_idx);
+    void replace_array_indices_with_local_vars(exprt &expr, std::size_t &vector_idx, const array_index_locst &loc);
     // map of arrays being indexed to their index type
     std::map<irep_idt, typet> array_index_map;
     bool single_local_var;
