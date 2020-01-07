@@ -228,24 +228,9 @@ void array_syntht::add_quantifiers_back(exprt &expr)
     for (int i = 0; i < operands.size() - 1; i++)
     {
       if (array_index_locations[i] == array_index_locations[i + 1] && compare_expr(operands[i], operands[i + 1]))
-      {
-        std::cout << "Expression " << i << " and expression " << i + 1 << " matched " << std::endl;
         matching_indices.push_back(i + 1);
-      }
       else
       {
-        std::cout << "The following do not match: " << expr2sygus(operands[i], false) << " and " << expr2sygus(operands[i + 1]) << std::endl;
-        std::cout << "The array index locations for the first expr are:" << std::endl;
-        for (const auto &indx : array_index_locations[i].locations)
-        {
-          std::cout << indx.first << ", " << indx.second << std::endl;
-        }
-        std::cout << "The array index locations for the second expr are:" << std::endl;
-        for (const auto &indx : array_index_locations[i + 1].locations)
-        {
-          std::cout << indx.first << ", " << indx.second << std::endl;
-        }
-
         sets_of_matching_indices.push_back(matching_indices);
         matching_indices.clear();
         matching_indices.push_back(i + 1);
@@ -253,7 +238,6 @@ void array_syntht::add_quantifiers_back(exprt &expr)
     }
     sets_of_matching_indices.push_back(matching_indices);
 
-    std::cout << "We found " << sets_of_matching_indices.size() << " sets of matching indices" << std::endl;
     exprt result;
     for (int i = 0; i < sets_of_matching_indices.size(); i++)
     {
@@ -276,7 +260,8 @@ void array_syntht::add_quantifiers_back(exprt &expr)
                                               from_integer(first_expr_locs.max_index_adjustment,
                                                            first_expr_locs.quantifier_bindings[0].type()));
 
-          exprt is_less_than_bound = binary_predicate_exprt(adjusted_index, ID_lt, from_integer(max_array_index, quantifier_bindings[0].type()));
+          exprt is_less_than_bound = binary_predicate_exprt(
+              adjusted_index, ID_lt, from_integer(max_array_index, quantifier_bindings[0].type()));
           implies_exprt
               implication(is_less_than_bound, operands[0]);
           where = implication;
@@ -297,16 +282,17 @@ void array_syntht::add_quantifiers_back(exprt &expr)
                                     : quantifier_exprt(ID_exists, first_expr_locs.quantifier_bindings, where);
           result_expr = new_expr;
         }
-        if (i > 0)
-        {
-          if (expr.id() == ID_and)
-            result_expr = and_exprt(result_expr, result);
-          else
-            result_expr = or_exprt(result_expr, result);
-        }
-        else
-          result = result_expr;
       }
+
+      if (i > 0)
+      {
+        if (expr.id() == ID_and)
+          result = and_exprt(result_expr, result);
+        else
+          result = or_exprt(result_expr, result);
+      }
+      else
+        result = result_expr;
     }
     if (sets_of_matching_indices.size() > 0)
       expr = result;
