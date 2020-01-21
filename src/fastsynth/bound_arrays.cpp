@@ -34,6 +34,8 @@ void array_syntht::expand_let_expressions(exprt &expr)
 
 bool array_syntht::bound_bitvectors(exprt &expr, const std::size_t &bound)
 {
+  if (expr.type().id() != ID_unsignedbv)
+    return false;
   if (expr.id() == ID_symbol)
   {
     std::size_t width = to_unsignedbv_type(expr.type()).get_width();
@@ -72,8 +74,6 @@ bool array_syntht::bound_bitvectors(exprt &expr, const std::size_t &bound)
   }
   else
   {
-    std::cout << "MYSTER BITVECOT BOUNDING" << std::endl;
-
     if (expr.type().id() == ID_unsignedbv)
       expr.type() = unsignedbv_typet(bound);
 
@@ -128,8 +128,10 @@ void array_syntht::bound_array_types(typet &type, std::size_t &bound)
   }
 }
 
+// returns list of variables that index arrays
 void array_syntht::bound_array_exprs(exprt &expr, std::size_t bound)
 {
+
   for (auto &op : expr.operands())
     bound_array_exprs(op, bound);
 
@@ -167,20 +169,25 @@ void array_syntht::bound_array_exprs(exprt &expr, std::size_t bound)
 
     if (index.id() == ID_concatenation)
     {
-      std::cout << "concat index before " << index.pretty() << std::endl;
       //bound_array_exprs(to_concatenation_expr(index).op1(), bound);
       index = to_concatenation_expr(index).op1();
+      if (index.id() == ID_symbol)
+        symbols_to_bound.insert(to_symbol_expr(index));
+
       bound_array_exprs(index, bound);
-      std::cout << "index after" << index.pretty() << std::endl;
     }
     else if (index.id() == ID_extractbits)
     {
       index = to_extractbits_expr(index).src();
+      if (index.id() == ID_symbol)
+        symbols_to_bound.insert(to_symbol_expr(index));
 
       bound_array_exprs(index, bound);
     }
     else if (index.type().id() == ID_unsignedbv)
     {
+      if (index.id() == ID_symbol)
+        symbols_to_bound.insert(to_symbol_expr(index));
       bound_bitvectors(index, bound);
     }
     else
@@ -201,20 +208,34 @@ void array_syntht::bound_array_exprs(exprt &expr, std::size_t bound)
     }
     else if (index.id() == ID_symbol)
     {
+      symbols_to_bound.insert(to_symbol_expr(index));
       bound_bitvectors(index, bound);
     }
     else if (index.id() == ID_concatenation)
     {
-      bound_array_exprs(to_concatenation_expr(index).op1(), bound);
+      index = to_concatenation_expr(index).op1();
+      if (index.id() == ID_symbol)
+        symbols_to_bound.insert(to_symbol_expr(index));
+
+      bound_array_exprs(index, bound);
     }
     else if (index.id() == ID_extractbits)
     {
-      bound_array_exprs(to_extractbits_expr(index).src(), bound);
+      index = to_extractbits_expr(index).src();
+      if (index.id() == ID_symbol)
+        symbols_to_bound.insert(to_symbol_expr(index));
+
+      bound_array_exprs(index, bound);
     }
     else
     {
-      std::cout << "Unsupported array index type " << index.pretty() << std::endl;
-      assert(0);
+      std::cout << "Unsupported array index type " << id2string(index.id()) << std::endl;
+      bound_array_exprs(index, bound);
+      if (index.type().id() == ID_unsignedbv)
+      {
+        bound_bitvectors(index, bound);
+      }
+      //assert(0);
     }
     expr = with_exprt(to_with_expr(expr).old(), index, to_with_expr(expr).new_value());
   }

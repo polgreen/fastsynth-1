@@ -47,7 +47,8 @@ public:
     void expand_let_expressions(exprt &expr);
 
 private:
-    std::set<exprt> symbols_to_bound;
+    void remove_added_implication(exprt &expr);
+    std::set<symbol_exprt> symbols_to_bound;
     void bound_arrays(problemt &problem, std::size_t bound);
     std::size_t original_word_length;
     mp_integer max_array_index;
@@ -64,12 +65,13 @@ private:
     mp_integer max_quantifier_adjustment;
     std::vector<mp_integer> quantifier_index_adjustment;
     void clear_array_index_search();
-    void find_array_indices(const exprt &expr, const std::size_t &depth, const std::size_t &distance_from_left, bool top_expr);
+    bool find_array_indices(const exprt &expr, const std::size_t &depth, const std::size_t &distance_from_left, bool top_expr);
     // bool check_array_indices(const exprt &expr, const std::size_t &depth, const std::size_t &distance_from_left, std::size_t &vector_idx);
     void replace_array_indices_with_local_vars(exprt &expr, std::size_t &vector_idx, const array_index_locst &loc);
     // map of arrays being indexed to their index type
     std::map<irep_idt, typet> array_index_map;
     bool single_local_var;
+    std::vector<exprt> added_implications;
 
     // vector of symbol with the binary predicate that should be applied to them.
 };
