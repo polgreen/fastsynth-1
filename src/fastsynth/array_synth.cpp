@@ -21,6 +21,30 @@ void replace_variable_with_constant(exprt &expr, irep_idt var_name, const exprt 
       expr = replacement;
 }
 
+bool compare_exprs_no_symbols(const exprt &expr1, const exprt &expr2)
+{
+  if (expr1.id() != expr2.id())
+    return false;
+  else if (expr1.operands().size() != expr2.operands().size())
+    return false;
+  else if (expr1.id() == ID_symbol)
+  {
+    if (expr1.type() == expr2.type())
+      return true;
+
+    return false;
+  }
+  else
+  {
+    for (int i = 0; i < expr1.operands().size(); i++)
+    {
+      if (!compare_exprs_no_symbols(expr1.operands()[i], expr2.operands()[i]))
+        return false;
+    }
+  }
+  return true;
+}
+
 // if a forall expression has only one variable, and that variable
 // is a small bitvector, attempts to replace the forall expr with
 // a conjunction
@@ -84,11 +108,12 @@ void array_syntht::normalise_quantifier_index_adjustments(array_index_locst &loc
   }
 }
 
-void array_syntht::find_array_indices(const exprt &expr,
+bool array_syntht::find_array_indices(const exprt &expr,
                                       const std::size_t &depth,
                                       const std::size_t &distance_from_left,
                                       bool top_index = false)
 {
+  bool result = false;
   if (top_index)
   {
     // TODO: fix this initialisation
@@ -108,6 +133,7 @@ void array_syntht::find_array_indices(const exprt &expr,
   auto &this_expr = array_index_locations.back();
   if (expr.id() == ID_index)
   {
+    result = true;
     if (to_index_expr(expr).index().id() == ID_constant)
     {
       // find linear relation between indices
@@ -129,14 +155,16 @@ void array_syntht::find_array_indices(const exprt &expr,
   std::size_t distance = 0;
   for (const auto &op : expr.operands())
   {
-    find_array_indices(op, depth + 1, distance);
+    if (find_array_indices(op, depth + 1, distance))
+      result = true;
     distance++;
   }
+  return result;
 }
 
 void array_syntht::replace_array_indices_with_local_vars(exprt &expr, std::size_t &vector_idx, const array_index_locst &locs)
 {
-  if (expr.id() == ID_index)
+  if (expr.id() == ID_index && locs.names.size() > 0)
   {
     assert(vector_idx < locs.names.size());
     if (locs.index_adjustments[vector_idx] == 0)
@@ -206,6 +234,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
     - the index is a constant and all possible indices of that array must be covered
   */
   // if this is not a conjunction or disjunction it can't be replaced with a forall.
+
   if (expr.id() == ID_and || expr.id() == ID_or)
   {
     //int i = 0;
@@ -215,12 +244,15 @@ void array_syntht::add_quantifiers_back(exprt &expr)
 
     auto &operands = expr.operands();
     assert(operands.size() != 0);
-
+    bool found_array = false;
     for (int i = 0; i < operands.size(); i++)
     {
-      find_array_indices(operands[i], 0, 0, true);
+      if (find_array_indices(operands[i], 0, 0, true))
+        found_array = true;
       normalise_quantifier_index_adjustments(array_index_locations[i]);
     }
+    if (!found_array)
+      return;
 
     // hunt for sets of matching expressions in the conjunction
     std::vector<int> matching_indices;
@@ -246,7 +278,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
 
       if (indices.size() == 1)
         result_expr = operands[indices[0]];
-      else
+      else if (indices.size() != 0 && indices.size() != 1)
       {
         std::size_t vector_idx = 0;
         exprt &where = operands[indices[0]];
@@ -268,19 +300,25 @@ void array_syntht::add_quantifiers_back(exprt &expr)
         }
         if (single_local_var)
         {
-          quantifier_exprt new_expr =
-              (expr.id() == ID_and) ? quantifier_exprt(
-                                          ID_forall, first_expr_locs.quantifier_bindings[0], where)
-                                    : quantifier_exprt(ID_exists, first_expr_locs.quantifier_bindings[0], where);
-          result_expr = new_expr;
+          if (quantifier_bindings.size() > 0)
+          {
+            quantifier_exprt new_expr =
+                (expr.id() == ID_and) ? quantifier_exprt(
+                                            ID_forall, first_expr_locs.quantifier_bindings[0], where)
+                                      : quantifier_exprt(ID_exists, first_expr_locs.quantifier_bindings[0], where);
+            result_expr = new_expr;
+          }
         }
         else
         {
-          quantifier_exprt new_expr =
-              (expr.id() == ID_and) ? quantifier_exprt(
-                                          ID_forall, first_expr_locs.quantifier_bindings, where)
-                                    : quantifier_exprt(ID_exists, first_expr_locs.quantifier_bindings, where);
-          result_expr = new_expr;
+          if (quantifier_bindings.size() > 0)
+          {
+            quantifier_exprt new_expr =
+                (expr.id() == ID_and) ? quantifier_exprt(
+                                            ID_forall, first_expr_locs.quantifier_bindings, where)
+                                      : quantifier_exprt(ID_exists, first_expr_locs.quantifier_bindings, where);
+            result_expr = new_expr;
+          }
         }
       }
 
@@ -299,6 +337,50 @@ void array_syntht::add_quantifiers_back(exprt &expr)
   }
 }
 
+void array_syntht::remove_added_implication(exprt &expr)
+{
+  status() << "List of added implications ";
+  for (const auto &e : added_implications)
+    status() << expr2sygus(e, false) << " " << eom;
+
+  status() << "Expression to remove these from: " << expr2sygus(expr, false) << eom;
+  std::vector<int> remove_operands;
+  std::vector<int> keep_operands;
+  for (int i = 0; i < expr.operands().size(); i++)
+  {
+    for (const auto &comparison : added_implications)
+    {
+      if (compare_exprs_no_symbols(comparison, expr.operands()[i]))
+      {
+        status() << "Expression " << i << " is being removed :" << expr2sygus(expr.operands()[i], false) << eom;
+        remove_operands.push_back(i);
+        break;
+      }
+      else
+        keep_operands.push_back(i);
+    }
+  }
+  status() << "Removing " << remove_operands.size() << " expressions \n";
+
+  if (expr.id() == ID_and || expr.id() == ID_or)
+  {
+    if (remove_operands.size() - expr.operands().size() == 1)
+      expr = expr.operands()[keep_operands[0]];
+    else
+    {
+      int offset = 0;
+      for (const auto &i : remove_operands)
+      {
+        expr.operands().erase(expr.operands().begin() + i - offset);
+        offset++;
+      }
+    }
+  }
+
+  if (expr.operands().size() == 1)
+    expr = expr.operands()[0];
+}
+
 void array_syntht::unbound_arrays_in_solution(solutiont &solution)
 {
   for (auto &e : solution.functions)
@@ -306,29 +388,62 @@ void array_syntht::unbound_arrays_in_solution(solutiont &solution)
 
   for (auto &e : solution.functions)
   {
-    status() << "Convert this: " << expr2sygus(e.second, false) << eom;
+    status() << "Original: " << expr2sygus(e.second, false) << eom;
+
+    status() << "Original: " << e.second.pretty() << eom; //expr2sygus(e.second, false) << eom;
     expand_let_expressions(e.second);
-    status() << "To this " << expr2sygus(e.second, false) << eom;
   }
 
   status() << "Unbounded solutions:";
   for (auto &e : solution.functions)
   {
-    status() << "Convert this: " << expr2sygus(e.second, false) << eom;
     add_quantifiers_back(e.second);
-    status() << " to " << expr2sygus(e.second, false) << eom;
+    status() << " unbounded:  " << e.second.pretty() << eom; // expr2sygus(e.second, false) << eom;
+  }
+
+  for (auto &e : solution.functions)
+  {
+    remove_added_implication(e.second);
+    status() << "and final: " << expr2sygus(e.second, false) << eom;
   }
 }
 
 void array_syntht::bound_arrays(problemt &problem, std::size_t bound)
 {
-  max_array_index = power(2, bound);
+  max_array_index = power(2, bound) - 1;
 
   for (auto &c : problem.constraints)
     replace_quantifier_with_conjunction(c, bound);
 
   for (auto &c : problem.constraints)
+  {
+    symbols_to_bound.clear();
     bound_array_exprs(c, bound);
+    if (symbols_to_bound.size() > 0)
+    {
+      std::set<symbol_exprt>::iterator it = symbols_to_bound.begin();
+      // add a constraint that the property only holds if these variables have values less than the array size
+      // build implication which says that the property holds only if the local variables are within array bounds
+      exprt var_is_less_than_bound = binary_predicate_exprt(
+          *it, ID_lt, from_integer(max_array_index, it->type()));
+      added_implications.push_back(var_is_less_than_bound);
+
+      it++;
+      while (it != symbols_to_bound.end())
+      {
+
+        exprt next_var_is_less_than_bound = binary_predicate_exprt(
+            *it, ID_lt, from_integer(max_array_index, it->type()));
+        added_implications.push_back(next_var_is_less_than_bound);
+        var_is_less_than_bound = and_exprt(var_is_less_than_bound, next_var_is_less_than_bound);
+        it++;
+      }
+
+      implies_exprt
+          implication(var_is_less_than_bound, c);
+      c = implication;
+    }
+  }
 
   // for each constraint, we add an implication that the constraints only need to hold if
   // the array indices are within bounds
@@ -387,8 +502,6 @@ void fix_function_types(exprt &body, const std::vector<typet> &domain)
       index = symbol_exprt(to_symbol_expr(index).get_identifier(), unsignedbv_typet(32));
     }
     body = index_exprt(to_index_expr(body).array(), index);
-    // if (body.type().id() == ID_integer)
-    // std::cout << "integer " << body.pretty() << std::endl;
   }
 }
 
@@ -481,9 +594,9 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
   // try removing quantifiers and nothing else;
   //for (auto &c : problem.constraints)
   // remove_forall_quantifiers(c);
-  sygus_interface.doit(problem);
-  verify(sygus_interface.solution);
-
+  //sygus_interface.doit(problem);
+  //verify(sygus_interface.solution);
+  array_size = 2;
   while (array_size < MAX_ARRAY_SIZE)
   {
     problem = local_problem;

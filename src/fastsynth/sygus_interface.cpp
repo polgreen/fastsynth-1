@@ -125,8 +125,11 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
       result += expr2sygus(op, use_integers) + " ";
   }
   else if (expr.id() == ID_or)
-    result += "or " + expr2sygus(expr.op0(), use_integers) + " " +
-              expr2sygus(expr.op1(), use_integers);
+  {
+    result += "or ";
+    for (const auto &op : expr.operands())
+      result += expr2sygus(op, use_integers) + " ";
+  }
   else if (expr.id() == ID_xor)
     result += "xor " + expr2sygus(expr.op0(), use_integers) + " " +
               expr2sygus(expr.op1(), use_integers);
@@ -220,6 +223,8 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
     {
       return result = clean_id(to_constant_expr(expr).get_value());
     }
+    else if (to_constant_expr(expr).type().id() == ID_bool)
+      return result = clean_id(to_constant_expr(expr).get_value());
     else
     {
       std::cout << "Unsupported constant type" << expr.pretty() << std::endl;
@@ -279,9 +284,15 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
   {
     result += "ite " + expr2sygus(to_if_expr(expr).cond()) + " " + expr2sygus(to_if_expr(expr).true_case()) + " " + expr2sygus(to_if_expr(expr).false_case());
   }
+  else if (id2string(expr.id()) == "distinct")
+  {
+    result += "distinct ";
+    for (const auto &op : expr.operands())
+      result += expr2sygus(op) + " ";
+  }
   else
   {
-    std::cout << "Unsupported expression type: " << id2string(expr.id()) << std::endl;
+    std::cout << "Unsupported expression type: " << expr.pretty() << " END" << std::endl;
     assert(0);
   }
   result += ")"; // + id2string(expr.id());
