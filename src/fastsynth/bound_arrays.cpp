@@ -32,211 +32,165 @@ void array_syntht::expand_let_expressions(exprt &expr)
     expand_let_expressions(op);
 }
 
-bool array_syntht::bound_bitvectors(exprt &expr, const std::size_t &bound)
+
+
+bool array_syntht::bound_arrays(exprt &expr, std::size_t bound)
 {
-  if (expr.type().id() != ID_unsignedbv)
+  symbols_to_bound.clear();
+   status() << "clear symbols "<< symbols_to_bound.size()<<eom;
+
+  if(!bound_array_exprs(expr, bound))
     return false;
-  if (expr.id() == ID_symbol)
-  {
-    std::size_t width = to_unsignedbv_type(expr.type()).get_width();
-    if (width > bound)
-    {
-      auto upper_e = from_integer(bound - 1, integer_typet());
-      auto lower_e = from_integer(0, integer_typet());
-      extractbits_exprt extract = extractbits_exprt(expr, upper_e, lower_e, unsignedbv_typet(bound));
-      expr = extract;
-    }
-    else if (width < bound)
-    {
-      concatenation_exprt concat = concatenation_exprt(constant_exprt("0", unsignedbv_typet(bound - width)), expr, unsignedbv_typet(bound));
-      expr = concat;
-    }
-    expr.type() = unsignedbv_typet(bound);
-  }
-  else if (expr.id() == ID_concatenation)
-  {
-    expr = to_concatenation_expr(expr).op1();
-    bound_bitvectors(expr, bound);
-  }
-  else if (expr.id() == ID_extractbits)
-  {
-    expr = to_extractbits_expr(expr).src();
-    bound_bitvectors(expr, bound);
-  }
-  else if (expr.id() == ID_constant)
-  {
-    mp_integer value;
-    to_integer(to_constant_expr(expr), value);
-    if (value <= max_array_index)
-      expr = from_integer(value, unsignedbv_typet(bound));
-    else
-      return false;
-  }
-  else
-  {
-    if (expr.type().id() == ID_unsignedbv)
-      expr.type() = unsignedbv_typet(bound);
 
-    for (auto &op : expr.operands())
-      bound_bitvectors(op, bound);
-  }
+  // status() << "number of symbols to bound: "<< symbols_to_bound.size()<<eom;
+  // if (symbols_to_bound.size() > 0)
+  // { 
+  //   status()<<"Bounding symbols \n"<<eom;    
+  //   std::set<exprt>::iterator symbol_it = symbols_to_bound.begin();
 
-  return true;
+  //   // add a constraint that the property only holds if these variables have values less than the array size
+  //   // build implication which says that the property holds only if the local variables are within array bounds
+  //   exprt var_is_less_than_bound = binary_predicate_exprt(
+  //         *symbol_it, ID_lt, from_integer(max_array_index, symbol_it->type()));
+  //   added_implications.push_back(var_is_less_than_bound);
+
+  //   symbol_it++;
+  //   while (symbol_it != symbols_to_bound.end())
+  //   {
+  //     exprt next_var_is_less_than_bound = binary_predicate_exprt(
+  //           *symbol_it, ID_lt, from_integer(max_array_index, symbol_it->type()));
+  //     added_implications.push_back(next_var_is_less_than_bound);
+  //     var_is_less_than_bound = and_exprt(var_is_less_than_bound, next_var_is_less_than_bound);
+  //     symbol_it++;
+  //   }
+
+  //   implies_exprt implication(var_is_less_than_bound, expr);
+  //   expr = implication;
+  // }
+
+  // status() <<"Added implications: \n";
+  // for (const auto &e : added_implications)
+  //   status() << expr2sygus(e, false) << " " << eom;
+
+return true;
 }
 
-// replace array index type with an index type of bitvector width bound
-void array_syntht::bound_array_types(typet &type, std::size_t &bound)
+void array_syntht::unbound_arrays_in_solution(solutiont &solution)
 {
-  if (type.id() == ID_array)
-  {
-    array_typet array = to_array_type(type);
-    exprt new_size;
-    if (array.size().id() == ID_constant)
-    {
-      std::cout << "were we expecting this??\n"
-                << type.pretty() << std::endl;
-      assert(0);
-    }
-    else
-    {
-      if (array.size().type().id() == ID_unsignedbv)
-      {
-        // const auto &bv = to_unsignedbv_type(array.size().type());
+  for (auto &e : solution.functions)
+    expand_let_expressions(e.second);
 
-        // if (bv.get_width() > bound)
-        {
-          new_size = infinity_exprt(unsignedbv_typet(bound));
-          bound_array_types(to_array_type(type).subtype(), bound);
-          type = array_typet(to_array_type(type).subtype(), new_size);
-        }
-      }
-      else if (array.size().type().id() == ID_infinity)
-      {
-        new_size = infinity_exprt(unsignedbv_typet(bound));
-        bound_array_types(to_array_type(type).subtype(), bound);
-        type = array_typet(to_array_type(type).subtype(), new_size);
-      }
-    }
-  }
-  else if (type.id() == ID_mathematical_function)
+  for (auto &e : solution.functions)
+    add_quantifiers_back(e.second);
+
+  for (auto &e : solution.functions)
+    remove_added_implication(e.second);
+}
+
+
+void array_syntht::contains_variable(const exprt &expr, bool &contains_var, bool &contains_local_var)
+{
+  if(contains_var && contains_local_var)
+    return;
+  //TODO: handle nondet symbol
+  for(const auto &op: expr.operands())
+    contains_variable(op, contains_var, contains_local_var);
+
+  if(expr.id()==ID_symbol)
   {
-    mathematical_function_typet math_fun = to_mathematical_function_type(type);
-    bound_array_types(math_fun.codomain(), bound);
-    for (auto &arg : math_fun.domain())
-      bound_array_types(arg, bound);
-    type = math_fun;
+    if(declared_variables.find(
+        clean_id(to_symbol_expr(expr).get_identifier()))!=declared_variables.end())
+      contains_var=true;
+    else
+      contains_local_var=true;
+  }
+}
+
+
+void array_syntht::bound_expression(const exprt & index_expr)
+{
+  bool contains_var=false;
+  bool contains_local_var=false;
+  contains_variable(index_expr,contains_var,contains_local_var);
+
+  status()<<expr2sygus(index_expr, false)<<" var: "<< contains_var <<" local var: "<< contains_local_var <<eom;
+
+  if(contains_var && !contains_local_var)
+    symbols_to_bound.insert(index_expr);
+
+}
+
+
+void array_syntht::add_implication(exprt &expr)
+{
+  if (symbols_to_bound.size() > 0)
+  {    
+    std::set<exprt>::iterator symbol_it = symbols_to_bound.begin();
+
+    // add a constraint that the property only holds if these variables have values less than the array size
+    // build implication which says that the property holds only if the local variables are within array bounds
+    exprt var_is_less_than_bound = binary_predicate_exprt(
+          *symbol_it, ID_lt, from_integer(max_array_index, symbol_it->type()));
+    added_implications.insert(var_is_less_than_bound);
+
+    symbol_it++;
+    while (symbol_it != symbols_to_bound.end())
+    {
+      exprt next_var_is_less_than_bound = binary_predicate_exprt(
+            *symbol_it, ID_lt, from_integer(max_array_index, symbol_it->type()));
+      added_implications.insert(next_var_is_less_than_bound);
+      var_is_less_than_bound = and_exprt(var_is_less_than_bound, next_var_is_less_than_bound);
+      symbol_it++;
+    }
+    implies_exprt implication(var_is_less_than_bound, expr);
+    expr = implication;
   }
 }
 
 // returns list of variables that index arrays
-void array_syntht::bound_array_exprs(exprt &expr, std::size_t bound)
+bool array_syntht::bound_array_exprs(exprt &expr, std::size_t bound)
 {
+  if(expr.id()==ID_forall || expr.id()==ID_exists)
+    symbols_to_bound.clear();
 
   for (auto &op : expr.operands())
-    bound_array_exprs(op, bound);
+    if(!bound_array_exprs(op, bound))
+      return false;
 
-  if (expr.id() == ID_array)
+   if((expr.id()==ID_forall || expr.id()==ID_exists) 
+   && symbols_to_bound.size()>0)
+      add_implication(to_quantifier_expr(expr).where());
+
+  if (expr.id() == ID_index || expr.id() == ID_with)
   {
-    array_typet &array_type = to_array_expr(expr).type();
-    bound_array_types(array_type, bound);
-    expr = array_exprt(to_array_expr(expr).operands(), array_type);
-  }
-  else if (expr.id() == ID_symbol)
-  {
-    if (expr.type().id() == ID_array)
-    {
-      array_typet &array_type = to_array_type(expr.type());
-      bound_array_types(array_type, bound);
-      expr = symbol_exprt(to_symbol_expr(expr).get_identifier(), array_type);
-    }
-  }
-  else if (expr.id() == ID_nondet_symbol)
-  {
-    if (expr.type().id() == ID_array)
-    {
-      array_typet &array_type = to_array_type(expr.type());
-      bound_array_types(array_type, bound);
-      expr = nondet_symbol_exprt(to_nondet_symbol_expr(expr).get_identifier(), array_type);
-    }
-  }
-  else if (expr.id() == ID_index)
-  {
-    // bound array
-    bound_array_exprs(to_index_expr(expr).array(), bound);
     // bound index
-    exprt index = to_index_expr(expr).index();
-    bound_array_exprs(index, bound);
-
-    if (index.id() == ID_concatenation)
+    exprt index = (expr.id() == ID_index) ? to_index_expr(expr).index() : to_with_expr(expr).where();
+    if (index.id() == ID_symbol || index.id() == ID_nondet_symbol)
     {
-      //bound_array_exprs(to_concatenation_expr(index).op1(), bound);
-      index = to_concatenation_expr(index).op1();
-      if (index.id() == ID_symbol)
-        symbols_to_bound.insert(to_symbol_expr(index));
-
-      bound_array_exprs(index, bound);
-    }
-    else if (index.id() == ID_extractbits)
-    {
-      index = to_extractbits_expr(index).src();
-      if (index.id() == ID_symbol)
-        symbols_to_bound.insert(to_symbol_expr(index));
-
-      bound_array_exprs(index, bound);
-    }
-    else if (index.type().id() == ID_unsignedbv)
-    {
-      if (index.id() == ID_symbol)
-        symbols_to_bound.insert(to_symbol_expr(index));
-      bound_bitvectors(index, bound);
-    }
-    else
-    {
-      std::cout << "Unsupported array index type " << index.pretty() << std::endl;
-      assert(0);
-    }
-    bound_array_exprs(to_index_expr(expr).array(), bound);
-    expr = index_exprt(to_index_expr(expr).array(), index);
-  }
-  else if (expr.id() == ID_with)
-  {
-    exprt index = to_with_expr(expr).where();
-
-    if (index.id() == ID_constant && index.type().id() == ID_unsignedbv)
-    {
-      index = constant_exprt(to_constant_expr(index).get_value(), unsignedbv_typet(bound));
-    }
-    else if (index.id() == ID_symbol)
-    {
-      symbols_to_bound.insert(to_symbol_expr(index));
-      bound_bitvectors(index, bound);
-    }
-    else if (index.id() == ID_concatenation)
-    {
-      index = to_concatenation_expr(index).op1();
-      if (index.id() == ID_symbol)
-        symbols_to_bound.insert(to_symbol_expr(index));
-
-      bound_array_exprs(index, bound);
-    }
-    else if (index.id() == ID_extractbits)
-    {
-      index = to_extractbits_expr(index).src();
-      if (index.id() == ID_symbol)
-        symbols_to_bound.insert(to_symbol_expr(index));
-
-      bound_array_exprs(index, bound);
-    }
-    else
-    {
-      std::cout << "Unsupported array index type " << id2string(index.id()) << std::endl;
-      bound_array_exprs(index, bound);
-      if (index.type().id() == ID_unsignedbv)
+      if(declared_variables.find(
+        clean_id(to_symbol_expr(index).get_identifier()))!=declared_variables.end())
       {
-        bound_bitvectors(index, bound);
+        symbols_to_bound.insert(index);
       }
-      //assert(0);
     }
-    expr = with_exprt(to_with_expr(expr).old(), index, to_with_expr(expr).new_value());
+    else if (index.id() == ID_constant)
+    {
+      mp_integer value;
+      to_integer(to_constant_expr(index), value);
+      if (value > max_array_index)
+      {
+        status() <<"constant expr takes value greater than max array index\n"
+        << index.pretty()<<eom;
+        return false;
+      }
+    }
+    else
+    {
+      status()<<"Inserting an expr into the symbol to bound set:" << expr2sygus(index, false) <<"\n";
+      symbols_to_bound.insert(index);
+      // maybe handle these differently?
+      //bound_expression(index);
+    }
   }
+  return true;
 }

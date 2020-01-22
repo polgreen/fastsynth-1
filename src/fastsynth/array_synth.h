@@ -29,51 +29,46 @@ class array_syntht : public messaget
 public:
     array_syntht(
         message_handlert &_message_handler) : messaget(_message_handler),
-
-                                              original_word_length(32u),
                                               max_array_index(2),
-                                              max_quantifier_adjustment(0),
-                                              single_local_var(true)
+
+                                              single_local_var(true),
+                                              max_index_modifier(0)
     {
     }
     sygus_interfacet sygus_interface;
     solutiont solution;
+    std::set<irep_idt> declared_variables;
     decision_proceduret::resultt array_synth_loop(sygus_parsert &parser, problemt &problem);
-    solutiont fix_types(const problemt &problem, solutiont &solution);
-    decision_proceduret::resultt array_synth_with_ints_loop(sygus_parsert &parser, problemt &problem);
-    void bound_array_types(typet &type, std::size_t &bound);
-    void bound_array_exprs(exprt &expr, std::size_t bound);
-    bool bound_bitvectors(exprt &expr, const std::size_t &bound);
+
+    bool bound_array_exprs(exprt &expr, std::size_t bound);
     void expand_let_expressions(exprt &expr);
 
 private:
     void remove_added_implication(exprt &expr);
-    std::set<symbol_exprt> symbols_to_bound;
-    void bound_arrays(problemt &problem, std::size_t bound);
-    std::size_t original_word_length;
+    std::set<exprt> symbols_to_bound;
+    void initialise_variable_set(const problemt &problem);
+
+
+    bool bound_arrays(problemt &problem, std::size_t bound);
+    bool bound_arrays(exprt &expr, std::size_t bound);
     mp_integer max_array_index;
     void unbound_arrays_in_solution(solutiont &solution);
-    std::map<symbol_exprt, std::size_t> original_array_sizes;
     void add_quantifiers_back(exprt &expr);
     void normalise_quantifier_index_adjustments(array_index_locst &loc);
 
     std::vector<array_index_locst> array_index_locations;
 
-    std::vector<symbol_exprt> quantifier_bindings;
-    std::vector<irep_idt> arrays_that_are_indexed;
-    std::vector<std::pair<int, int>> location_of_array_indices;
-    mp_integer max_quantifier_adjustment;
-    std::vector<mp_integer> quantifier_index_adjustment;
-    void clear_array_index_search();
     bool find_array_indices(const exprt &expr, const std::size_t &depth, const std::size_t &distance_from_left, bool top_expr);
-    // bool check_array_indices(const exprt &expr, const std::size_t &depth, const std::size_t &distance_from_left, std::size_t &vector_idx);
     void replace_array_indices_with_local_vars(exprt &expr, std::size_t &vector_idx, const array_index_locst &loc);
-    // map of arrays being indexed to their index type
-    std::map<irep_idt, typet> array_index_map;
-    bool single_local_var;
-    std::vector<exprt> added_implications;
 
-    // vector of symbol with the binary predicate that should be applied to them.
+    bool single_local_var;
+    std::set<exprt> added_implications;
+    mp_integer max_index_modifier;
+    void add_implication(exprt &expr);
+    bool compare_expr(const exprt &expr1, const exprt &expr2);
+    void bound_expression(const exprt & index_expr);
+    void contains_variable(const exprt &expr, bool &contains_var, bool &constains_local_var);
+
 };
 
 #endif /*CPROVER_FASTSYNTH_ARRAY_SYNTH_H_*/

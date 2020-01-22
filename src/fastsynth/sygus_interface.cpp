@@ -79,7 +79,7 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
 {
   std::string result = /*id2string(expr.id()) + */ "(";
 
-  if (expr.id() == ID_equal)
+  if(expr.id() == ID_equal)
     result += "= " + expr2sygus(expr.op0(), use_integers) + " " +
               expr2sygus(expr.op1(), use_integers);
   else if (expr.id() == ID_le)
@@ -103,19 +103,19 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
   else if (expr.id() == ID_lt)
   {
     if (to_binary_relation_expr(expr).op0().id() == ID_typecast)
-      result += (use_integers ? "<" : "bvslt ") + expr2sygus(expr.op0(), use_integers) + " " +
+      result += (use_integers ? "< " : "bvslt ") + expr2sygus(expr.op0(), use_integers) + " " +
                 expr2sygus(expr.op1(), use_integers);
     else
-      result += (use_integers ? "<" : "bvult ") + expr2sygus(expr.op0(), use_integers) + " " +
+      result += (use_integers ? "< " : "bvult ") + expr2sygus(expr.op0(), use_integers) + " " +
                 expr2sygus(expr.op1(), use_integers);
   }
   else if (expr.id() == ID_gt)
   {
     if (to_binary_relation_expr(expr).op0().id() == ID_typecast)
-      result += (use_integers ? ">" : "bvsgt ") + expr2sygus(expr.op0(), use_integers) + " " +
+      result += (use_integers ? "> " : "bvsgt ") + expr2sygus(expr.op0(), use_integers) + " " +
                 expr2sygus(expr.op1(), use_integers);
     else
-      result += (use_integers ? ">" : "bvugt ") + expr2sygus(expr.op0(), use_integers) + " " +
+      result += (use_integers ? "> " : "bvugt ") + expr2sygus(expr.op0(), use_integers) + " " +
                 expr2sygus(expr.op1(), use_integers);
   }
   else if (expr.id() == ID_and)
@@ -157,17 +157,22 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
     result += "bvlshl " + expr2sygus(expr.op0(), use_integers) + " " +
               expr2sygus(expr.op1(), use_integers);
   else if (expr.id() == ID_unary_minus)
-    result += (use_integers ? "-" : "bvneg ") + expr2sygus(expr.op0(), use_integers);
+  {
+    if(use_integers)
+      return result = "-"+expr2sygus(expr.op0(), use_integers);
+    else  
+      result += "bvneg " + expr2sygus(expr.op0(), use_integers);
+  }
   else if (expr.id() == ID_plus)
-    result += (use_integers ? "+" : "bvadd ") + expr2sygus(expr.op0(), use_integers) + " " +
+    result += (use_integers ? "+ " : "bvadd ") + expr2sygus(expr.op0(), use_integers) + " " +
               expr2sygus(expr.op1(), use_integers);
   else if (expr.id() == ID_minus)
-    result += (use_integers ? "-"
+    result += (use_integers ? "- "
                             : "bvsub ") +
               expr2sygus(expr.op0(), use_integers) + " " +
               expr2sygus(expr.op1(), use_integers);
   else if (expr.id() == ID_mult)
-    result += (use_integers ? "*" : "bvmul ") + expr2sygus(expr.op0(), use_integers) + " " +
+    result += (use_integers ? "* " : "bvmul ") + expr2sygus(expr.op0(), use_integers) + " " +
               expr2sygus(expr.op1(), use_integers);
   else if (expr.id() == ID_implies)
   {
@@ -292,8 +297,9 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
   }
   else
   {
-    std::cout << "Unsupported expression type: " << expr.pretty() << " END" << std::endl;
-    assert(0);
+    std::cout  << "WARNING: unsupported expression type" << id2string(expr.id()) << std::endl;
+    result+=id2string(expr.id());
+   // assert(0);
   }
   result += ")"; // + id2string(expr.id());
   return result;
