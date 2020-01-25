@@ -164,8 +164,10 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
       result += "bvneg " + expr2sygus(expr.op0(), use_integers);
   }
   else if (expr.id() == ID_plus)
+  {
     result += (use_integers ? "+ " : "bvadd ") + expr2sygus(expr.op0(), use_integers) + " " +
               expr2sygus(expr.op1(), use_integers);
+  }
   else if (expr.id() == ID_minus)
     result += (use_integers ? "- "
                             : "bvsub ") +
@@ -287,7 +289,7 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
   }
   else if (expr.id() == ID_if)
   {
-    result += "ite " + expr2sygus(to_if_expr(expr).cond()) + " " + expr2sygus(to_if_expr(expr).true_case()) + " " + expr2sygus(to_if_expr(expr).false_case());
+    result += "ite " + expr2sygus(to_if_expr(expr).cond(), use_integers) + " " + expr2sygus(to_if_expr(expr).true_case(),use_integers) + " " + expr2sygus(to_if_expr(expr).false_case(),use_integers);
   }
   else if (id2string(expr.id()) == "distinct")
   {
@@ -297,7 +299,7 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
   }
   else
   {
-    std::cout  << "WARNING: unsupported expression type" << id2string(expr.id()) << std::endl;
+    std::cout  << "WARNING: unsupported expression type" << expr.pretty() << std::endl;
     result+=id2string(expr.id());
    // assert(0);
   }
@@ -354,6 +356,7 @@ void sygus_interfacet::build_query(problemt &problem)
 
   for (const auto &f : problem.constraints)
   {
+    std::cout<<"Output constraint, use integers "<<use_integers<<std::endl;
     constraints += "(constraint " + expr2sygus(f, use_integers) + ")\n";
   }
 }
@@ -368,7 +371,7 @@ decision_proceduret::resultt sygus_interfacet::doit(problemt &problem, bool use_
   std::cout << "Use integers " << use_ints << std::endl;
   use_integers = use_ints;
   build_query(problem);
-  use_integers = false;
+  //use_integers = false;
   return solve();
 }
 
