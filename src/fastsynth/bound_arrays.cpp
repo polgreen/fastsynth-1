@@ -89,17 +89,21 @@ void array_syntht::unbound_arrays_in_solution(solutiont &solution)
   for (auto &e : solution.functions)
   {
     expand_let_expressions(e.second);
-   // status() << "after expanding let" << expr2sygus(e.second, true) << eom;
+   status() << "after expanding let:\n" << expr2sygus(e.second, true) << eom;
   }
+  for (auto &e : solution.functions)
+  {
+    remove_added_implication(e.second);
+    status() << "after removing implications :\n" << expr2sygus(e.second, true) << eom;
 
+  }
   for (auto &e : solution.functions)
     add_quantifiers_back(e.second);
 
   for (auto &e : solution.functions)
    debug() << "after adding quant back; " << expr2sygus(e.second, true) << eom;
 
-  for (auto &e : solution.functions)
-    remove_added_implication(e.second);
+
 }
 
 void array_syntht::contains_variable(const exprt &expr, bool &contains_var, bool &contains_local_var)
@@ -146,8 +150,17 @@ void array_syntht::add_implication(exprt &expr, std::set<exprt> &symbols)
         *symbol_it, ID_ge, from_integer(0, symbol_it->type()));
     exprt bounds = and_exprt(var_is_less_than_bound, var_is_greater_than_zero);
 
+    // build the inverse of these
+    exprt var_is_greater_than_bound = /*unary_exprt(ID_not,*/ binary_predicate_exprt(
+        *symbol_it, ID_ge, from_integer(max_array_index, symbol_it->type()));
+    exprt var_is_not_ge_zero = unary_exprt(ID_not, binary_predicate_exprt(
+        *symbol_it, ID_ge, from_integer(0, symbol_it->type())));
+
+
     added_implications.insert(var_is_less_than_bound);
     added_implications.insert(var_is_greater_than_zero);
+    added_implications.insert(var_is_greater_than_bound);
+    added_implications.insert(var_is_not_ge_zero);
 
     symbol_it++;
     while (symbol_it != symbols.end())
@@ -157,10 +170,17 @@ void array_syntht::add_implication(exprt &expr, std::set<exprt> &symbols)
       exprt next_var_is_greater_than_zero = binary_predicate_exprt(
           *symbol_it, ID_ge, from_integer(0, symbol_it->type()));
 
+      exprt next_var_is_ge_bound = /*unary_exprt(ID_not,*/binary_predicate_exprt(
+          *symbol_it, ID_ge, from_integer(max_array_index, symbol_it->type()));
+      exprt next_var_is_not_ge_zero = unary_exprt(ID_not, binary_predicate_exprt(
+          *symbol_it, ID_ge, from_integer(0, symbol_it->type())));
+
       exprt next_bounds = and_exprt(next_var_is_less_than_bound, next_var_is_greater_than_zero);
 
       added_implications.insert(next_var_is_less_than_bound);
       added_implications.insert(next_var_is_greater_than_zero);
+      added_implications.insert(next_var_is_ge_bound);
+      added_implications.insert(next_var_is_not_ge_zero);
 
       bounds = and_exprt(bounds, next_bounds);
       symbol_it++;
