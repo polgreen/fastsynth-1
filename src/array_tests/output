@@ -1,0 +1,4 @@
+(and (= synth::parameter0 synth::parameter1) 
+(or 
+(= (select synth::parameter1 0) (select synth::parameter1 synth::parameter2)) 
+(= (select synth::parameter1 1) (select synth::parameter1 synth::parameter2)) ) )
