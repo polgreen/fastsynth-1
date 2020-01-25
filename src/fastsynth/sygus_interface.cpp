@@ -85,19 +85,19 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
   else if (expr.id() == ID_le)
   {
     if (to_binary_relation_expr(expr).op0().id() == ID_typecast)
-      result += (use_integers ? "<= " : "bvsle") + expr2sygus(expr.op0(), use_integers) + " " +
+      result += (use_integers ? "<= " : "bvsle ") + expr2sygus(expr.op0(), use_integers) + " " +
                 expr2sygus(expr.op1(), use_integers);
     else
-      result += (use_integers ? "<= " : "bvule") + expr2sygus(expr.op0(), use_integers) + " " +
+      result += (use_integers ? "<= " : "bvule ") + expr2sygus(expr.op0(), use_integers) + " " +
                 expr2sygus(expr.op1(), use_integers);
   }
   else if (expr.id() == ID_ge)
   {
     if (to_binary_relation_expr(expr).op0().id() == ID_typecast)
-      result += (use_integers ? ">= " : "bvsge") + expr2sygus(expr.op0(), use_integers) + " " +
+      result += (use_integers ? ">= " : "bvsge ") + expr2sygus(expr.op0(), use_integers) + " " +
                 expr2sygus(expr.op1(), use_integers);
     else
-      result += (use_integers ? ">= " : "bvuge") + expr2sygus(expr.op0(), use_integers) + " " +
+      result += (use_integers ? ">= " : "bvuge ") + expr2sygus(expr.op0(), use_integers) + " " +
                 expr2sygus(expr.op1(), use_integers);
   }
   else if (expr.id() == ID_lt)

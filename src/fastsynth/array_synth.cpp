@@ -354,13 +354,18 @@ void array_syntht::add_quantifiers_back(exprt &expr)
     }
     sets_of_matching_indices.push_back(matching_indices);
 
+    bool all_sets_size_one=true;
     for (const auto &s : sets_of_matching_indices)
     {
+      if(s.size()>1)
+        all_sets_size_one=false;
       debug() << " set: ";
       for (const auto &i : s)
         debug() << i << " ";
       debug() << eom;
     }
+    if(all_sets_size_one)
+      return;
 
     // Now check which of the normalised array indices are the same for
     // each set. For each set, we first check which of the array indices in array_indexes
@@ -474,7 +479,7 @@ void find_and_remove_expr(exprt &original_expr, const exprt &find)
   for (auto &op : original_expr.operands())
     find_and_remove_expr(op, find);
 
-  if (original_expr.id() == ID_and)
+  if (original_expr.id() == ID_and || original_expr.id() == ID_or)
   {
     //TODO make this more efficient
     std::vector<exprt> new_operands;
