@@ -1,4 +1,3 @@
-
 (set-logic ALL)
 (synth-fun inv-fn ((x (Array Int Int))) Bool)
 (declare-var x (Array Int Int))

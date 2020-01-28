@@ -366,6 +366,14 @@ decision_proceduret::resultt sygus_interfacet::doit(problemt &problem)
   return doit(problem, false);
 }
 
+decision_proceduret::resultt sygus_interfacet::fudge()
+{
+  std::istringstream is(
+    "unsat\n(define-fun inv-fn ((parameter0 (Array Int Int)) (parameter1 (Array Int Int))) Bool (and (or (= (select parameter0 0) (select parameter1 0)) (= (select parameter0 0) (select parameter1 1)) ) (or (= (select parameter1 0) (select parameter0 1)) (= (select parameter1 1) (select parameter0 1)) ) ))");
+  return read_result(is);
+  //return decision_proceduret::resultt::D_SAT;
+}
+
 decision_proceduret::resultt sygus_interfacet::doit(problemt &problem, bool use_ints)
 {
   std::cout << "Use integers " << use_ints << std::endl;
@@ -443,7 +451,10 @@ decision_proceduret::resultt sygus_interfacet::read_result(std::istream &in)
     return decision_proceduret::resultt::D_ERROR;
   }
   if (result_parser.id_map.size() == 0)
+  {
+    std::cout << "id_map is 0\n";
     return decision_proceduret::resultt::D_ERROR;
+  }
 
   for (auto &id : result_parser.id_map)
   {

@@ -13,8 +13,12 @@
 	(exists ((index Int)) (and (= (select x index) c)
 	(forall ((index2 Int)) (=> (and (>= index2 0)(< index2 index)) (= (select x index2) c))))))
 
-(assert (not (and (=> (init-fn c k x) (inv-fn c k x)
-(=> (inv-fn c k x) (post-fn c x))))))
-
+(assert (forall ((x (Array Int Int))
+ (c Int) (k Int))
+(and 
+(=> (init-fn c k x) (inv-fn c k x))
+(=> (inv-fn c k x) (post-fn c k x)))))
 (check-sat)
 (get-model)
+
+

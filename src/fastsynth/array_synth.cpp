@@ -10,12 +10,8 @@
 #include <cmath>
 #include "bitvector2integer.h"
 #include <algorithm>
-//#define FUDGE 1
+//#define FUDGE
 
-// exprt fudge_solution()
-// {
-//   std::string << "";
-// }
 
 void replace_variable_with_constant(exprt &expr, irep_idt var_name, const exprt &replacement)
 {
@@ -378,11 +374,12 @@ void array_syntht::add_quantifiers_back(exprt &expr)
       auto &this_matching_set = sets_of_matching_indices[i];
       if (this_matching_set.size() == 1)
       {
-        result_expr = operands[this_matching_set[0]];
-        break;
+        result_expr = operands[this_matching_set[0]];  
       }
-      if (this_matching_set.size() == 0)
+      else if (this_matching_set.size() == 0)
         break;
+      else
+      {  
       // TODO FIX THIS
       const auto &comparison_locs = array_index_locations[this_matching_set[0]];
 
@@ -416,6 +413,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
         }
         if (all_match)
           which_arrays_match.push_back(j);
+
       }
 
       // uniformise quantifier bindings
@@ -453,7 +451,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
                                       ID_forall, binding, where)
                                 : quantifier_exprt(ID_exists, binding, where);
       result_expr = new_expr;
-
+      }
       if (i > 0)
       {
         if (expr.id() == ID_and)
@@ -575,14 +573,15 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
     sygus_interface.clear();
     status() << "Array size bounded to width " << array_size << eom;
 
-    // #ifdef FUDGE
-    //     bool synthesis_successful = true; //sygus_interface.doit(problem, true)
-    //     sygus_interface.solution.functions.push_back(fudge_solution());
-    // #else
-    //     bool synthesis_successful = sygus_interface.doit(problem, true);
-    // #fi
 
-    switch (sygus_interface.doit(problem, true))
+    decision_proceduret::resultt result;
+   #ifdef FUDGE
+    result=sygus_interface.fudge();
+   #else
+     result=sygus_interface.doit(problem, true);
+     #endif
+
+    switch (result)
     {
     case decision_proceduret::resultt::D_ERROR:
       status() << "Warning, error from sygus interface \n";
