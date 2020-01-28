@@ -13,14 +13,13 @@
 	(forall ((index Int))  
 		(and (ite (= (select x index) 0)
 			(= (select x! index) 1)
-			(= (select x! index ) (select x index)))
 			(ite (= (select x index) 1)
 			(= (select x! index) 0)
-			(= (select x! index ) (select x index))))))
+			(= (select x! index ) (select x index)))))))
 
 
 (define-fun post-fn ((x (Array Int Int))) Bool 
-	(exists ((index Int)) (= (select x index) 0)))
+	(exists ((index Int)) (= (select x index) 1)))
 
 (constraint (=> (init-fn x) (inv-fn x)))
 (constraint (=> (and (inv-fn x) (trans-fn x x!)) (inv-fn x!)))

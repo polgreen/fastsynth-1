@@ -15,8 +15,7 @@
 (define-fun trans-fn ((a (Array Int Int)) (b (Array Int Int)) (a! (Array Int Int)) (b! (Array Int Int))
 (idx1 Int) (idx2 Int)) Bool
 (and
-(= a! (store a idx1 (select a idx2)))
-(= a! (store a idx2 (select a idx1)))
+(= a! (store (store a idx1 (select a idx2)) idx2 (select a idx1)))
 (= b! b)))
 
 (define-fun post-fn ((a (Array Int Int)) (b (Array Int Int)) ) Bool

@@ -23,6 +23,7 @@ class sygus_interfacet
 public:
     // output sygus file
     decision_proceduret::resultt doit(problemt &problem);
+    decision_proceduret::resultt fudge();
     decision_proceduret::resultt doit(problemt &problem, bool use_ints);
     std::string declare_vars;
     std::string synth_fun;
