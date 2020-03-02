@@ -9,7 +9,7 @@
 
 
 (define-fun trans-fn ((x (Array Int Int))(x! (Array Int Int)) ) Bool 
-	(forall ((index Int))(= (select x! index) (+ (select x index)1))))
+	(forall ((index Int))(= (select x! index) (+ (select x index) 1))))
 
 (define-fun post-fn ((x (Array Int Int))) Bool 
 (forall ((index Int)) (<= (select x index) (select x (+ index 1)))))

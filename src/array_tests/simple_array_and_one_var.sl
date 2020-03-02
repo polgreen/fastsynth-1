@@ -6,7 +6,7 @@
 (declare-var i! Int)
 
 (define-fun init-fn ((i Int) (x (Array Int Int))) Bool 
-	(and (= i 0)
+	(and (> i 0)
 	(forall ((index Int)) (= (select x index) 10))))
 
 

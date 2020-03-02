@@ -17,6 +17,6 @@
 (declare-var d Bool)
 
 (constraint (= (parity a b c d) (AIG a b c d)))
-(set-options ((samples "0")))
+;(set-options ((samples "0")))
 (check-synth)
 

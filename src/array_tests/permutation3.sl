@@ -6,11 +6,8 @@
 (declare-var b! (Array Int Int))
 
 
-
-
 (define-fun init-fn ((a (Array Int Int)) (b (Array Int Int))) Bool
 (= a b))
-
 
 (define-fun trans-fn ((a (Array Int Int)) (b (Array Int Int)) (a! (Array Int Int)) (b! (Array Int Int))) Bool
 (and
