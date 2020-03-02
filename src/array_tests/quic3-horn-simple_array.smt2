@@ -1,4 +1,6 @@
 (set-logic HORN)
+(set-option :fp.spacer.ground_pobs false)
+(set-option :fp.spacer.q3.use_qgen true)
 (declare-fun inv-fn ((Array Int Int)) Bool)
 (declare-var x (Array Int Int))
 (declare-var x! (Array Int Int))

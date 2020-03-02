@@ -7,9 +7,8 @@
 
 (define-fun init-fn ((i Int) (x (Array Int Int))) Bool 
 (and
-	(forall ((index Int)) (= (select x i) 1))
+	(forall ((index Int)) (= (select x index) 1))
 	(= i 0)))
-
 
 (define-fun trans-fn ((i Int)  (x (Array Int Int)) 
 	(i! Int) (x! (Array Int Int))) Bool 
@@ -18,7 +17,7 @@
 	(= i! (+ i 1))))
 
 (define-fun post-fn ((i Int) (x (Array Int Int))) Bool 
-	(forall ((index Int))  (< (select x index) (select x (+ index 1)))))
+	(forall ((index Int)) (=> (< index i) (<= (select x index) (select x (+ index 1))))))
 
 (constraint (=> (init-fn i x) (inv-fn i x)))
 (constraint (=> (and (inv-fn i x) (trans-fn i x i! x!)) (inv-fn i! x!)))
