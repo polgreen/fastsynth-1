@@ -12,7 +12,6 @@
 #include <algorithm>
 //#define FUDGE
 
-
 void replace_variable_with_constant(exprt &expr, irep_idt var_name, const exprt &replacement)
 {
   for (auto &op : expr.operands())
@@ -25,7 +24,6 @@ void replace_variable_with_constant(exprt &expr, irep_idt var_name, const exprt 
 
 bool compare_exprs_no_symbols(const exprt &expr1, const exprt &expr2)
 {
-  std::cout << "Comparing " << expr2sygus(expr1, true) << " and " << expr2sygus(expr2, true) << std::endl;
   bool result = true;
   if (expr1.id() != expr2.id())
     result = false;
@@ -44,7 +42,6 @@ bool compare_exprs_no_symbols(const exprt &expr1, const exprt &expr2)
         result = false;
     }
   }
-  std::cout << " Result: " << result << std::endl;
   return result;
 }
 
@@ -88,7 +85,7 @@ void replace_quantifier_with_conjunction(exprt &expr, const std::size_t &bound)
 
 void array_syntht::normalise_quantifier_index_adjustments(expr_array_index_locst &expr_loc)
 {
-  
+
   if (expr_loc.array_indexes.size() == 0)
   {
     std::cout << "Empty array indexes \n"
