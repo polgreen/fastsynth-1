@@ -34,6 +34,11 @@ bool compare_exprs_no_symbols(const exprt &expr1, const exprt &expr2)
     if (expr1.type() != expr2.type())
       result = false;
   }
+  else if (expr1.id() == ID_constant)
+  {
+    if (expr1 != expr2)
+      result = false;
+  }
   else
   {
     for (int i = 0; i < expr1.operands().size(); i++)
