@@ -11,26 +11,26 @@ struct array_index_locst
     irep_idt name;
     std::vector<std::pair<int, int>> locations;
     std::vector<mp_integer> index_adjustments;
+    std::vector<mp_integer> constant_adjustments;
     std::vector<mp_integer> original_index_values;
     symbol_exprt quantifier_binding;
-     array_index_locst():
-     quantifier_binding(symbol_exprt("null",integer_typet()))
-     {
-     }
+    array_index_locst() : quantifier_binding(symbol_exprt("null", integer_typet()))
+    {
+    }
 };
 
 inline std::string output_expr_locs(const array_index_locst &a)
 {
     std::string result;
-    result="Array index locst for array "+id2string(a.name);
-    result+="\nLocations: ";
-    for(const auto &l: a.locations)
-        result+=integer2string(l.first)+","+integer2string(l.second)+" ";
-    result+="\nIndex Adjustments: ";
-        for(const auto &l: a.index_adjustments)
-        result+=integer2string(l)+" ";
-     result+="\n";
-     return result;   
+    result = "Array index locst for array " + id2string(a.name);
+    result += "\nLocations: ";
+    for (const auto &l : a.locations)
+        result += integer2string(l.first) + "," + integer2string(l.second) + " ";
+    result += "\nIndex Adjustments: ";
+    for (const auto &l : a.index_adjustments)
+        result += integer2string(l) + " ";
+    result += "\n";
+    return result;
 }
 
 struct expr_array_index_locst

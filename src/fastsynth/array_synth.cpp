@@ -98,28 +98,33 @@ void array_syntht::normalise_quantifier_index_adjustments(expr_array_index_locst
     return;
   }
 
+  mp_integer minimum_index = 100000; //arbitrarily large number
   for (auto &loc : expr_loc.array_indexes)
   {
-    mp_integer minimum = 10000;  //arbitrarily large number
-    debug()<<"normalising the following:" <<output_expr_locs(loc) <<eom;
+    debug() << "normalising the following:" << output_expr_locs(loc) << eom;
     if (loc.original_index_values.size() == 0)
       break;
     for (const auto &i : loc.original_index_values)
-      if (i < minimum)
-        minimum = i;
+      if (i < minimum_index)
+        minimum_index = i;
 
-    debug()<<"Minimum was "<<minimum<<eom;
+    debug() << "Minimum was " << minimum_index << eom;
     loc.index_adjustments.clear();
 
     for (auto &i : loc.original_index_values)
     {
-      mp_integer adjustment = i - minimum;
+      mp_integer adjustment = i - minimum_index;
       loc.index_adjustments.push_back(adjustment);
       if (adjustment > expr_loc.max_index_adjustment)
         expr_loc.max_index_adjustment = adjustment;
     }
+    for (auto &const_val : expr_loc.constant_values)
+    {
+      mp_integer val;
+      to_integer(const_val, val);
+      loc.constant_adjustments.push_back(minimum_index - val);
+    }
   }
-
 }
 
 bool array_syntht::find_array_indices(const exprt &expr,
@@ -133,6 +138,12 @@ bool array_syntht::find_array_indices(const exprt &expr,
 
   INVARIANT(array_index_locations.size() > 0, "vector must be bigger than 0");
   auto &this_expr = array_index_locations.back();
+
+  if (expr.id() == ID_const)
+  {
+    this_expr.constant_locations.push_back(std::pair<int, int>(depth, distance_from_left));
+    this_expr.constant_values.push_back(to_constant_expr(expr));
+  }
 
   if (expr.id() == ID_index)
   {
