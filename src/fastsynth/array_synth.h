@@ -37,26 +37,28 @@ struct expr_array_index_locst
 {
     mp_integer max_index_adjustment;
     std::vector<array_index_locst> array_indexes;
+    std::vector<std::pair<int, int>> constant_locations;
+    std::vector<constant_exprt> constant_values;
 };
 
 inline bool operator==(const array_index_locst &a, const array_index_locst &b)
 {
     if (a.name != b.name)
     {
-       // std::cout<<"Name didn't match"<<std::endl;
-       // std::cout<<a.name <<"!="<< b.name<<std::endl;
+        // std::cout<<"Name didn't match"<<std::endl;
+        // std::cout<<a.name <<"!="<< b.name<<std::endl;
         return false;
     }
     if (a.locations != b.locations)
     {
-      //  std::cout<<"Locations didn't match"<<std::endl;
-      //  return false;
+        //  std::cout<<"Locations didn't match"<<std::endl;
+        //  return false;
     }
     if (a.index_adjustments != b.index_adjustments)
     {
-       // std::cout<<"Adjustments didn't match"<<std::endl;
+        // std::cout<<"Adjustments didn't match"<<std::endl;
         return false;
-    } 
+    }
     else
         return true;
 };
@@ -96,10 +98,11 @@ private:
 
     std::vector<expr_array_index_locst> array_index_locations;
 
-    bool find_array_indices(const exprt &expr, const std::size_t &depth, const std::size_t &distance_from_left, bool top_expr);
+    bool find_array_indices(const exprt &expr, const std::size_t &depth, const std::size_t &distance_from_left, bool top_expr, bool inside_idx);
     void replace_array_indices_with_local_vars(
-        exprt &expr, const std::size_t vector_idx, const array_index_locst &loc,
-        bool replace_costants, const std::size_t constant_vector_idx, const symbol_exprt &quantifier_binding);
+        exprt &expr, const std::size_t vector_idx, const array_index_locst &locs,
+        bool replace_constants, std::size_t &constant_vector_idx, const symbol_exprt &quantifier_binding,
+        const std::vector<bool> &replace_these_constants);
 
     bool single_local_var;
     std::size_t local_var_counter;

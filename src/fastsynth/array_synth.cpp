@@ -12,6 +12,20 @@
 #include <algorithm>
 //#define FUDGE
 
+std::vector<bool> constants_match(const array_index_locst &a, const array_index_locst &b)
+{
+  std::vector<bool> result;
+  if (a.constant_adjustments.size() != b.constant_adjustments.size())
+    return result;
+  for (int i = 0; i < a.constant_adjustments.size(); i++)
+  {
+    std::cout << "constant adjustments " << a.constant_adjustments[i] << " " << b.constant_adjustments[i] << std::endl;
+    result.push_back(a.constant_adjustments[i] == b.constant_adjustments[i]);
+  }
+
+  return result;
+}
+
 void replace_variable_with_constant(exprt &expr, irep_idt var_name, const exprt &replacement)
 {
   for (auto &op : expr.operands())
@@ -91,9 +105,9 @@ void replace_quantifier_with_conjunction(exprt &expr, const std::size_t &bound)
 void array_syntht::normalise_quantifier_index_adjustments(expr_array_index_locst &expr_loc)
 {
 
-  if (expr_loc.array_indexes.size() == 0)
+  if (expr_loc.array_indexes.size() == 0 && expr_loc.constant_locations.size() == 90)
   {
-    std::cout << "Empty array indexes \n"
+    std::cout << "No array indices, no constants \n"
               << std::endl;
     return;
   }
@@ -122,7 +136,7 @@ void array_syntht::normalise_quantifier_index_adjustments(expr_array_index_locst
     {
       mp_integer val;
       to_integer(const_val, val);
-      loc.constant_adjustments.push_back(minimum_index - val);
+      loc.constant_adjustments.push_back(val - minimum_index);
     }
   }
 }
@@ -130,7 +144,8 @@ void array_syntht::normalise_quantifier_index_adjustments(expr_array_index_locst
 bool array_syntht::find_array_indices(const exprt &expr,
                                       const std::size_t &depth,
                                       const std::size_t &distance_from_left,
-                                      bool top_index = false)
+                                      bool top_index = false,
+                                      bool inside_index = false)
 {
   bool result = false;
   if (top_index)
@@ -139,14 +154,18 @@ bool array_syntht::find_array_indices(const exprt &expr,
   INVARIANT(array_index_locations.size() > 0, "vector must be bigger than 0");
   auto &this_expr = array_index_locations.back();
 
-  if (expr.id() == ID_const)
+  status() << "Looking for array index in " << expr2sygus(expr) << " " << id2string(expr.id()) << eom;
+  if (expr.id() == ID_constant && !inside_index)
   {
     this_expr.constant_locations.push_back(std::pair<int, int>(depth, distance_from_left));
     this_expr.constant_values.push_back(to_constant_expr(expr));
+    status() << "Pushing back constant value " << expr.pretty() << eom;
   }
-
+  bool found_idx = false;
   if (expr.id() == ID_index)
   {
+    found_idx = true;
+    //  std::cout << "FOUND ARRAY INDEX " << std::endl;
     result = true;
     if (to_index_expr(expr).index().id() == ID_constant)
     {
@@ -162,7 +181,7 @@ bool array_syntht::find_array_indices(const exprt &expr,
       {
         if (name == this_expr.array_indexes[i].name)
         {
-          debug() << "new array " << id2string(name) << eom;
+          status() << "new array " << id2string(name) << eom;
           new_array = false;
           this_array_idx = i;
         }
@@ -179,7 +198,7 @@ bool array_syntht::find_array_indices(const exprt &expr,
       INVARIANT(!to_integer(
                     to_constant_expr(to_index_expr(expr).index()), value),
                 "unable to get index value");
-      debug() << "index value: " << value << " at " << depth << ", " << distance_from_left << eom;
+      status() << "index value: " << value << " at " << depth << ", " << distance_from_left << eom;
       this_array.original_index_values.push_back(value);
 
       this_array.locations.push_back(std::pair<int, int>(depth, distance_from_left));
@@ -188,7 +207,7 @@ bool array_syntht::find_array_indices(const exprt &expr,
         this_array.quantifier_binding = symbol_exprt(id, to_index_expr(expr).index().type());
     }
   }
-  debug() << "Size of expr array index locs" << array_index_locations.size() << eom;
+  debug() << "Size of expr array index locs " << array_index_locations.size() << eom;
   debug() << "Size of this expr " << this_expr.array_indexes.size() << eom;
   for (const auto &ai : this_expr.array_indexes)
     debug() << "SIze of array index adjustments " << ai.original_index_values.size() << eom;
@@ -196,69 +215,84 @@ bool array_syntht::find_array_indices(const exprt &expr,
     debug() << "SIze of array index locations " << ai.locations.size() << eom;
 
   std::size_t distance = 0;
-  for (const auto &op : expr.operands())
+  // no nested indices
+  if (!found_idx)
   {
-    if (find_array_indices(op, depth + 1, distance))
-      result = true;
-    distance++;
+    for (const auto &op : expr.operands())
+    {
+      if (find_array_indices(op, depth + 1, distance, false, found_idx))
+        result = true;
+      distance++;
+    }
   }
   return result;
 }
 
 void array_syntht::replace_array_indices_with_local_vars(
     exprt &expr, const std::size_t vector_idx, const array_index_locst &locs,
-    bool replace_constants, const std::size_t constant_vector_idx, const symbol_exprt &quantifier_binding)
+    bool replace_constants, std::size_t &constant_vector_idx, const symbol_exprt &quantifier_binding,
+    const std::vector<bool> &replace_these_constants)
 {
-  std::size_t next_vector_idx=vector_idx;
-    debug() << "replace array indices in " << expr2sygus(expr, true) << " with "
-           << expr2sygus(quantifier_binding, true) <<" and vector idx " <<vector_idx << eom;
-  debug() << "Using locs"<< output_expr_locs(locs)<<eom;         
-  replace_constants = false;
-  bool replace=false;
+  std::size_t next_vector_idx = vector_idx;
+  status() << "replace array indices in " << expr2sygus(expr, true) << " with "
+           << expr2sygus(quantifier_binding, true) << ", vector idx " << vector_idx << "and constant idx " << constant_vector_idx << eom;
+  debug() << "Using locs" << output_expr_locs(locs) << eom;
+
+  bool replace = false;
   if (expr.id() == ID_index && locs.name != "")
   {
-    if(to_index_expr(expr).array().id()==ID_symbol)
+    if (to_index_expr(expr).array().id() == ID_symbol)
     {
-      if(to_symbol_expr(to_index_expr(expr).array()).get_identifier()==locs.name)
-        replace=true;
+      if (to_symbol_expr(to_index_expr(expr).array()).get_identifier() == locs.name)
+        replace = true;
     }
-    else if(locs.name=="no-name")
-    replace=true;
-  }
-  if(replace)    
-  {
+    else if (locs.name == "no-name")
+      replace = true;
 
-    std::cout<<"Vector idx "<< vector_idx <<std::endl;
-    assert(vector_idx < locs.locations.size());
-    if (locs.index_adjustments[vector_idx] == 0)
+    if (replace)
     {
-      index_exprt new_expr(to_index_expr(expr).array(), quantifier_binding);
-      expr = new_expr;
+      std::cout << "Vector idx " << vector_idx << std::endl;
+      assert(vector_idx < locs.locations.size());
+      if (locs.index_adjustments[vector_idx] == 0)
+      {
+        index_exprt new_expr(to_index_expr(expr).array(), quantifier_binding);
+        expr = new_expr;
+      }
+      else
+      {
+        exprt adjusted_index = binary_exprt(quantifier_binding, ID_plus,
+                                            from_integer(locs.index_adjustments[vector_idx],
+                                                         quantifier_binding.type()));
+        index_exprt new_expr(to_index_expr(expr).array(), adjusted_index);
+        expr = new_expr;
+      }
+      debug() << "Result: " << expr2sygus(expr, true) << eom;
+      next_vector_idx++;
     }
-    else
-    {
-      exprt adjusted_index = binary_exprt(quantifier_binding, ID_plus,
-                                          from_integer(locs.index_adjustments[vector_idx],
-                                                       quantifier_binding.type()));
-      index_exprt new_expr(to_index_expr(expr).array(), adjusted_index);
-      expr = new_expr;
-      
-    }
-    debug()<<"Result: " <<expr2sygus(expr,true)<<eom;
-    next_vector_idx++;
   }
-  // if (expr.id() == ID_constant && replace_constants)
-  // {
-  //   assert(constant_vector_idx < locs.constant_values.size());
-  //   exprt new_expr = binary_exprt(locs.quantifier_bindings[0], ID_plus,
-  //                                 from_integer(locs.constant_values[constant_vector_idx], locs.quantifier_bindings[0].type()));
-  //   expr = new_expr;
-  //   constant_vector_idx++;
-  // }
+  if (expr.id() == ID_constant &&
+      replace_constants && constant_vector_idx < locs.constant_adjustments.size())
+  {
+    status() << "Attempting to replace constant, constant vector idx: " << constant_vector_idx
+             << " and size of constant adjustments " << locs.constant_adjustments.size() << eom;
+    if (replace_these_constants[constant_vector_idx])
+    {
+      std::cout << "REPLACED \n";
+      exprt new_expr = binary_exprt(quantifier_binding, ID_plus,
+                                    from_integer(locs.constant_adjustments[constant_vector_idx],
+                                                 quantifier_binding.type()));
+      expr = new_expr;
+    }
+    constant_vector_idx++;
+    std::cout << "next constant idx " << constant_vector_idx << std::endl;
+  }
 
   for (auto &op : expr.operands())
+  {
+    std::cout << "calling from the bottom \n";
     replace_array_indices_with_local_vars(
-      op, next_vector_idx, locs, replace_constants, constant_vector_idx, quantifier_binding);
+        op, next_vector_idx, locs, replace_constants, constant_vector_idx, quantifier_binding, replace_these_constants);
+  }
 }
 
 // return true if expressions are the same except with different
@@ -307,8 +341,6 @@ void array_syntht::add_quantifiers_back(exprt &expr)
   for (auto &o : expr.operands())
     add_quantifiers_back(o);
 
-
-
   // clear quantifier search here?
   array_index_locations.clear();
   /*
@@ -323,7 +355,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
 
   if (expr.id() == ID_and || expr.id() == ID_or)
   {
-    debug() << "ATTEMPTING TO ADD quant back for " << expr2sygus(expr, true) << eom;
+    status() << "ATTEMPTING TO ADD quant back for " << expr2sygus(expr, true) << eom;
     //int i = 0;
 
     auto &operands = expr.operands();
@@ -363,17 +395,17 @@ void array_syntht::add_quantifiers_back(exprt &expr)
     }
     sets_of_matching_indices.push_back(matching_indices);
 
-    bool all_sets_size_one=true;
+    bool all_sets_size_one = true;
     for (const auto &s : sets_of_matching_indices)
     {
-      if(s.size()>1)
-        all_sets_size_one=false;
+      if (s.size() > 1)
+        all_sets_size_one = false;
       debug() << " set: ";
       for (const auto &i : s)
         debug() << i << " ";
       debug() << eom;
     }
-    if(all_sets_size_one)
+    if (all_sets_size_one)
       return;
 
     // Now check which of the normalised array indices are the same for
@@ -387,83 +419,113 @@ void array_syntht::add_quantifiers_back(exprt &expr)
       auto &this_matching_set = sets_of_matching_indices[i];
       if (this_matching_set.size() == 1)
       {
-        result_expr = operands[this_matching_set[0]];  
+        result_expr = operands[this_matching_set[0]];
       }
       else if (this_matching_set.size() == 0)
         break;
       else
-      {  
-      // TODO FIX THIS
-      const auto &comparison_locs = array_index_locations[this_matching_set[0]];
-
-      std::vector<int> which_arrays_match;
-      // for each locs, check that all indices in this_matching_set match
-      for (int j = 0; j < comparison_locs.array_indexes.size(); j++)
       {
+        // TODO FIX THIS
+        const auto &comparison_locs = array_index_locations[this_matching_set[0]];
 
-        const auto &comparison_array_index = comparison_locs.array_indexes[j];
-        debug() << "Checking array index " << id2string(comparison_array_index.name) << eom;
-        debug()<<" array adjustment" << (comparison_array_index.index_adjustments[0]) <<eom;
+        std::vector<int> which_arrays_match;
+        std::vector<std::vector<bool>> which_index_do_constants_match;
 
-        bool all_match = true;
-        // check that, for each things in the matching set, this array index is the same
-        for(int k=1; k<this_matching_set.size(); k++)
+        // for each locs, check that all indices in this_matching_set match
+        for (int j = 0; j < comparison_locs.array_indexes.size(); j++)
         {
-          std::cout<<"Checking this for "<< k <<", which is operand "<< this_matching_set[k]<<std::endl;
+          std::vector<bool> compare_constants_for_this_index(comparison_locs.constant_locations.size(), true);
+          //     bool found_some_matching_constants = false;
+          const auto &comparison_array_index = comparison_locs.array_indexes[j];
+          debug() << "Checking array index " << id2string(comparison_array_index.name) << eom;
+          debug() << " array adjustment" << (comparison_array_index.index_adjustments[0]) << eom;
 
-          const auto &comp_array_index2=
-          array_index_locations[this_matching_set[k]].array_indexes[j];
-                  debug() << "comparing wtij array index " << id2string(comp_array_index2.name) << eom;
-        debug()<<" array adjustment" << (comp_array_index2.index_adjustments[0])<<eom;
+          bool all_match = true;
+          // check that, for each things in the matching set, this array index is the same
+          for (int k = 1; k < this_matching_set.size(); k++)
+          {
+            std::cout << "Checking this for " << k << ", which is operand " << this_matching_set[k] << std::endl;
 
-          if(!(comparison_array_index==comp_array_index2))
-            all_match=false;
-          else
-          {// no use if the expressions are actually identical
-            if(comparison_array_index.original_index_values==comp_array_index2.original_index_values)
-              all_match=false;
-          }  
+            const auto &comp_array_index2 =
+                array_index_locations[this_matching_set[k]].array_indexes[j];
+            debug() << "comparing with array index " << id2string(comp_array_index2.name) << eom;
+            debug() << " array adjustment" << (comp_array_index2.index_adjustments[0]) << eom;
+
+            if (!(comparison_array_index == comp_array_index2))
+              all_match = false;
+            else
+            { // no use if the expressions are actually identical
+              if (comparison_array_index.original_index_values == comp_array_index2.original_index_values)
+                all_match = false;
+            }
+            if (all_match)
+            {
+              status() << "Do any of the constants match? " << eom;
+              std::vector<bool> constant_comparison = constants_match(comparison_array_index, comp_array_index2);
+              status() << "This and the last comparison\n ";
+
+              assert(constant_comparison.size() == compare_constants_for_this_index.size());
+              for (int i = 0; i < constant_comparison.size(); i++)
+              {
+                status() << "Comp: " << constant_comparison[i] << " and " << compare_constants_for_this_index[i];
+                bool and_result = compare_constants_for_this_index[i] & constant_comparison[i];
+                compare_constants_for_this_index[i] = and_result;
+                status() << " = " << and_result << eom;
+              }
+            }
+            else
+              break;
+          }
+          if (all_match)
+          {
+            which_arrays_match.push_back(j);
+            which_index_do_constants_match.push_back(compare_constants_for_this_index);
+          }
         }
-        if (all_match)
-          which_arrays_match.push_back(j);
 
-      }
+        // uniformise quantifier bindings
+        std::string id = "local_var" + integer2string(local_var_counter);
+        auto binding = symbol_exprt(id,
+                                    array_index_locations[this_matching_set[0]].array_indexes[0].quantifier_binding.type());
+        local_var_counter++;
+        // now replace with quantifier
+        exprt &where = operands[this_matching_set[0]];
 
-      // uniformise quantifier bindings
-      std::string id="local_var"+integer2string(local_var_counter);
-      auto binding = symbol_exprt(id,
-      array_index_locations[this_matching_set[0]].array_indexes[0].quantifier_binding.type());
-      local_var_counter++;
-      // now replace with quantifier
-      exprt &where = operands[this_matching_set[0]];
+        auto &first_expr_locs = array_index_locations[this_matching_set[0]];
+        // replace array indices with local vars in the "where"
+        for (int i = 0; i < which_arrays_match.size(); i++)
+        {
+          debug() << "CALLING replace array indices on expr " << expr2sygus(where) << eom;
+          std::size_t const_index = 0;
+          replace_array_indices_with_local_vars(
+              where, 0, first_expr_locs.array_indexes[which_arrays_match[i]],
+              true, const_index, binding, which_index_do_constants_match[i]);
+        }
 
-      auto &first_expr_locs = array_index_locations[this_matching_set[0]];
-      // replace array indices with local vars in the "where"
-      for (const auto &w : which_arrays_match)
-      {
-        replace_array_indices_with_local_vars(
-            where, 0, first_expr_locs.array_indexes[w],
-            /*matching_constants[i]*/ false, 0, binding);
-      }
+        // if (first_expr_locs.max_index_adjustment > 0)
+        // {
+        //   INVARIANT(single_local_var, "Not yet implemented: multiple local vars with adjustements");
+        //   // build implication which says that the property holds only if the local variables are within array bounds
+        //   exprt adjusted_index = binary_exprt(binding, ID_plus,
+        //                                       from_integer(first_expr_locs.max_index_adjustment,
+        //                                                    binding.type()));
+        //   exprt is_less_than_bound = binary_predicate_exprt(
+        //       adjusted_index, ID_lt, from_integer(max_array_index, binding.type()));
+        //   implies_exprt
+        //       implication(is_less_than_bound, operands[0]);
+        //   where = implication;
+        // }
+        exprt index_is_positive = binary_predicate_exprt(
+            binding, ID_ge, from_integer(0, binding.type()));
 
-      if (first_expr_locs.max_index_adjustment > 0)
-      {
-        INVARIANT(single_local_var, "Not yet implemented: multiple local vars with adjustements");
-        // build implication which says that the property holds only if the local variables are within array bounds
-        exprt adjusted_index = binary_exprt(binding, ID_plus,
-                                            from_integer(first_expr_locs.max_index_adjustment,
-                                                         binding.type()));
-        exprt is_less_than_bound = binary_predicate_exprt(
-            adjusted_index, ID_lt, from_integer(max_array_index, binding.type()));
         implies_exprt
-            implication(is_less_than_bound, operands[0]);
+            implication(index_is_positive, operands[0]);
         where = implication;
-      }
-      quantifier_exprt new_expr =
-          (expr.id() == ID_and) ? quantifier_exprt(
-                                      ID_forall, binding, where)
-                                : quantifier_exprt(ID_exists, binding, where);
-      result_expr = new_expr;
+        quantifier_exprt new_expr =
+            (expr.id() == ID_and) ? quantifier_exprt(
+                                        ID_forall, binding, where)
+                                  : quantifier_exprt(ID_exists, binding, where);
+        result_expr = new_expr;
       }
       if (i > 0)
       {
@@ -478,9 +540,8 @@ void array_syntht::add_quantifiers_back(exprt &expr)
     if (sets_of_matching_indices.size() > 0)
     { //TODO check is this why nested doen's twork?
       expr = result;
-      debug()<<"RESULT:: "<<expr2sygus(expr, true)<<eom;
+      debug() << "RESULT:: " << expr2sygus(expr, true) << eom;
     }
-      
   }
 }
 
@@ -516,7 +577,7 @@ void array_syntht::remove_added_implication(exprt &expr)
   for (const auto &e : added_implications)
     debug() << expr2sygus(e, false) << " " << eom;
   debug() << "end of list \n"
-           << eom;
+          << eom;
 
   debug() << "Expression to remove these from: " << expr2sygus(expr, false) << eom;
   std::vector<int> remove_operands;
@@ -586,13 +647,12 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
     sygus_interface.clear();
     status() << "Array size bounded to width " << array_size << eom;
 
-
     decision_proceduret::resultt result;
-   #ifdef FUDGE
-    result=sygus_interface.fudge();
-   #else
-     result=sygus_interface.doit(problem, true);
-     #endif
+#ifdef FUDGE
+    result = sygus_interface.fudge();
+#else
+    result = sygus_interface.doit(problem, true);
+#endif
 
     switch (result)
     {
@@ -621,13 +681,13 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
         status() << "SAT, got counterexample.\n"
                  << eom;
         counterexamplet cex = verify.get_counterexample();
-        for (const auto &ass : cex.assignment)
-        {
-          status() << "ASSIGNMENT" << ass.first.pretty() << "::\n"
-                   << eom;
-          status() << ass.second.pretty() << "\n"
-                   << eom;
-        }
+        // for (const auto &ass : cex.assignment)
+        // {
+        //   status() << "ASSIGNMENT" << ass.first.pretty() << "::\n"
+        //            << eom;
+        //   status() << ass.second.pretty() << "\n"
+        //            << eom;
+        // }
         sygus_interface.solution.functions.clear();
         array_size++;
       }
