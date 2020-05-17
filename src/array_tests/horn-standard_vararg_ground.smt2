@@ -1,6 +1,6 @@
 (set-logic HORN)
 
-(declare-fun inv-fn (Int (Array Int Int)) Bool)
+(declare-fun inv-fn ((Array Int Int) Int ) Bool)
 (declare-var a (Array Int Int))
 (declare-var i Int)
 (declare-var a! (Array Int Int))
