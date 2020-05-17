@@ -17,7 +17,7 @@
 		(ite (< (select x index) 100)
 			(= (select x! index) (+ (select x index) i))
 			(= (select x! index ) (select x index))
-			))))sim
+			))))
 
 (define-fun post-fn ((i Int) (x (Array Int Int))) Bool 
 	(> (+ (select x 0)(select x 1)(select x 2) (select x 3))0))
