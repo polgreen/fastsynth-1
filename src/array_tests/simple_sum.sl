@@ -17,10 +17,10 @@
 		(ite (< (select x index) 100)
 			(= (select x! index) (+ (select x index) i))
 			(= (select x! index ) (select x index))
-			))))
+			))))sim
 
 (define-fun post-fn ((i Int) (x (Array Int Int))) Bool 
-	(forall ((index Int)) (=> (>= index 0) (>= (select x index) 10))))
+	(> (+ (select x 0)(select x 1)(select x 2) (select x 3))0))
 
 (constraint (=> (init-fn i x) (inv-fn i x)))
 (constraint (=> (and (inv-fn i x) (trans-fn i x i! x!)) (inv-fn i! x!)))

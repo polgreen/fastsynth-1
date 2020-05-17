@@ -1,5 +1,6 @@
-(set-logic ALL)
-(synth-fun inv-fn ((i Int) (x (Array Int Int))) Bool)
+(set-logic HORN)
+
+(declare-fun inv-fn (Int (Array Int Int)) Bool)
 (declare-var x (Array Int Int))
 (declare-var x! (Array Int Int))
 (declare-var i Int)
@@ -17,14 +18,18 @@
 		(ite (< (select x index) 100)
 			(= (select x! index) (+ (select x index) i))
 			(= (select x! index ) (select x index))
-			))))
+			))))sim
 
 (define-fun post-fn ((i Int) (x (Array Int Int))) Bool 
-	(forall ((index Int)) (=> (>= index 0) (>= (select x index) 10))))
+	(> (+ (select x 0)(select x 1)(select x 2) (select x 3))0))
 
-(constraint (=> (init-fn i x) (inv-fn i x)))
-(constraint (=> (and (inv-fn i x) (trans-fn i x i! x!)) (inv-fn i! x!)))
-(constraint (=> (inv-fn i x) (post-fn i x)))
-(check-synth)
+(assert (forall ((x (Array Int Int))(x! (Array Int Int))
+ (i! Int) (i Int)) (=> (init-fn i x) (inv-fn i x))))
+(assert (forall ((x (Array Int Int))(x! (Array Int Int))
+ (i! Int) (i Int)) (=> (and (inv-fn i x) (trans-fn i x i! x!)) (inv-fn i! x!))))
+(assert (forall ((x (Array Int Int))(x! (Array Int Int))
+ (i! Int) (i Int)) (=> (inv-fn i x) (post-fn i x))))
+(check-sat)
+(get-model)
 
 

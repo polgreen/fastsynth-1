@@ -20,7 +20,7 @@
 			))))
 
 (define-fun post-fn ((x (Array Int Int)) (y (Array Int Int))) Bool 
-	(forall ((index Int))(=(bvsub (select x index) (select y index)) 0)))
+	(forall ((index Int))(=> (>= index 0) (=(bvsub (select x index) (select y index)) 0))))
  
 (constraint (=> (init-fn x y) (inv-fn x y)))
 (constraint (=> (and (inv-fn x y) (trans-fn x y x! y!)) (inv-fn x! y!)))

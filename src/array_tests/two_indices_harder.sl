@@ -12,7 +12,7 @@
 	(forall ((index Int))(= (select x! index) (+ (select x index) 1))))
 
 (define-fun post-fn ((x (Array Int Int))) Bool 
-(forall ((index Int)) (<= (select x index) (select x (+ index 1)))))
+(forall ((index Int)) (=> (>= index 0)(<= (select x index) (select x (+ index 1))))))
 
 (constraint (=> (init-fn x) (inv-fn x)))
 (constraint (=> (and (inv-fn x) (trans-fn x x! )) (inv-fn x!)))
