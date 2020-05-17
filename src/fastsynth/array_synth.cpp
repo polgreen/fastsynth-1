@@ -515,12 +515,15 @@ void array_syntht::add_quantifiers_back(exprt &expr)
         //       implication(is_less_than_bound, operands[0]);
         //   where = implication;
         // }
-        exprt index_is_positive = binary_predicate_exprt(
-            binding, ID_ge, from_integer(0, binding.type()));
+        if (expr.id() == ID_and)
+        {
+          exprt index_is_positive = binary_predicate_exprt(
+              binding, ID_ge, from_integer(0, binding.type()));
 
-        implies_exprt
-            implication(index_is_positive, operands[0]);
-        where = implication;
+          implies_exprt
+              implication(index_is_positive, operands[0]);
+          where = implication;
+        }
         quantifier_exprt new_expr =
             (expr.id() == ID_and) ? quantifier_exprt(
                                         ID_forall, binding, where)
