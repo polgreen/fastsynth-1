@@ -20,7 +20,7 @@ void array_syntht::expand_let_expressions(exprt &expr)
   if (expr.id() == ID_let)
   {
     auto &let_expr = to_let_expr(expr);
-    for (int i = 0; i < let_expr.variables().size(); i++)
+    for (unsigned int i = 0; i < let_expr.variables().size(); i++)
     {
       INVARIANT(let_expr.variables()[i].id() == ID_symbol, "Let expression should have list of symbols");
       replace_local_var(let_expr.where(), to_symbol_expr(let_expr.variables()[i]).get_identifier(), let_expr.values()[i]);
@@ -89,21 +89,20 @@ void array_syntht::unbound_arrays_in_solution(solutiont &solution)
   for (auto &e : solution.functions)
   {
     expand_let_expressions(e.second);
-   status() << "after expanding let:\n" << expr2sygus(e.second, true) << eom;
+    status() << "after expanding let:\n"
+             << expr2sygus(e.second, true) << eom;
   }
   for (auto &e : solution.functions)
   {
     remove_added_implication(e.second);
-    status() << "after removing implications :\n" << expr2sygus(e.second, true) << eom;
-
+    status() << "after removing implications :\n"
+             << expr2sygus(e.second, true) << eom;
   }
   for (auto &e : solution.functions)
     add_quantifiers_back(e.second);
 
   for (auto &e : solution.functions)
-   debug() << "after adding quant back; " << expr2sygus(e.second, true) << eom;
-
-
+    debug() << "after adding quant back; " << expr2sygus(e.second, true) << eom;
 }
 
 void array_syntht::contains_variable(const exprt &expr, bool &contains_var, bool &contains_local_var)
@@ -154,8 +153,7 @@ void array_syntht::add_implication(exprt &expr, std::set<exprt> &symbols)
     exprt var_is_greater_than_bound = /*unary_exprt(ID_not,*/ binary_predicate_exprt(
         *symbol_it, ID_ge, from_integer(max_array_index, symbol_it->type()));
     exprt var_is_not_ge_zero = unary_exprt(ID_not, binary_predicate_exprt(
-        *symbol_it, ID_ge, from_integer(0, symbol_it->type())));
-
+                                                       *symbol_it, ID_ge, from_integer(0, symbol_it->type())));
 
     added_implications.insert(var_is_less_than_bound);
     added_implications.insert(var_is_greater_than_zero);
@@ -170,10 +168,10 @@ void array_syntht::add_implication(exprt &expr, std::set<exprt> &symbols)
       exprt next_var_is_greater_than_zero = binary_predicate_exprt(
           *symbol_it, ID_ge, from_integer(0, symbol_it->type()));
 
-      exprt next_var_is_ge_bound = /*unary_exprt(ID_not,*/binary_predicate_exprt(
+      exprt next_var_is_ge_bound = /*unary_exprt(ID_not,*/ binary_predicate_exprt(
           *symbol_it, ID_ge, from_integer(max_array_index, symbol_it->type()));
       exprt next_var_is_not_ge_zero = unary_exprt(ID_not, binary_predicate_exprt(
-          *symbol_it, ID_ge, from_integer(0, symbol_it->type())));
+                                                              *symbol_it, ID_ge, from_integer(0, symbol_it->type())));
 
       exprt next_bounds = and_exprt(next_var_is_less_than_bound, next_var_is_greater_than_zero);
 

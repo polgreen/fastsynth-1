@@ -17,7 +17,7 @@ std::vector<bool> constants_match(const array_index_locst &a, const array_index_
   std::vector<bool> result;
   if (a.constant_adjustments.size() != b.constant_adjustments.size())
     return result;
-  for (int i = 0; i < a.constant_adjustments.size(); i++)
+  for (unsigned int i = 0; i < a.constant_adjustments.size(); i++)
   {
     std::cout << "constant adjustments " << a.constant_adjustments[i] << " " << b.constant_adjustments[i] << std::endl;
     result.push_back(a.constant_adjustments[i] == b.constant_adjustments[i]);
@@ -55,7 +55,7 @@ bool compare_exprs_no_symbols(const exprt &expr1, const exprt &expr2)
   }
   else
   {
-    for (int i = 0; i < expr1.operands().size(); i++)
+    for (unsigned int i = 0; i < expr1.operands().size(); i++)
     {
       if (!compare_exprs_no_symbols(expr1.operands()[i], expr2.operands()[i]))
         result = false;
@@ -91,7 +91,7 @@ void replace_quantifier_with_conjunction(exprt &expr, const std::size_t &bound)
       exprt result = (expr.id() == ID_forall) ? exprt(ID_and, quant.type()) : exprt(ID_or, quant.type());
       exprt local_where = quant.where();
 
-      for (int i = 0; i < conjunction_size; i++)
+      for (unsigned int i = 0; i < conjunction_size; i++)
       {
         replace_variable_with_constant(local_where, var_id, from_integer(i, var.type()));
         result.operands().push_back(local_where);
@@ -177,7 +177,7 @@ bool array_syntht::find_array_indices(const exprt &expr,
 
       bool new_array = true;
       int this_array_idx = this_expr.array_indexes.size();
-      for (int i = 0; i < this_expr.array_indexes.size(); i++)
+      for (unsigned int i = 0; i < this_expr.array_indexes.size(); i++)
       {
         if (name == this_expr.array_indexes[i].name)
         {
@@ -327,7 +327,7 @@ bool array_syntht::compare_expr(const exprt &expr1, const exprt &expr2)
         return true;
   }
 
-  for (int i = 0; i < operands1.size(); i++)
+  for (unsigned int i = 0; i < operands1.size(); i++)
   {
     if (!compare_expr(operands1[i], operands2[i]))
       return false;
@@ -361,7 +361,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
     auto &operands = expr.operands();
     assert(operands.size() != 0);
     bool found_array = false;
-    for (int i = 0; i < operands.size(); i++)
+    for (unsigned int i = 0; i < operands.size(); i++)
     {
       if (find_array_indices(operands[i], 0, 0, true))
         found_array = true;
@@ -379,7 +379,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
 
     matching_indices.push_back(0);
     //    bool matching_constant = true;
-    for (int i = 0; i < operands.size() - 1; i++)
+    for (unsigned int i = 0; i < operands.size() - 1; i++)
     {
       if (array_index_locations[i].array_indexes.size() == array_index_locations[i + 1].array_indexes.size() &&
           compare_expr(operands[i], operands[i + 1]))
@@ -413,7 +413,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
     // are the same, and store the indexes in the vector "which_arrays_match"
 
     exprt result;
-    for (int i = 0; i < sets_of_matching_indices.size(); i++)
+    for (unsigned int i = 0; i < sets_of_matching_indices.size(); i++)
     {
       exprt result_expr;
       auto &this_matching_set = sets_of_matching_indices[i];
@@ -432,7 +432,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
         std::vector<std::vector<bool>> which_index_do_constants_match;
 
         // for each locs, check that all indices in this_matching_set match
-        for (int j = 0; j < comparison_locs.array_indexes.size(); j++)
+        for (unsigned int j = 0; j < comparison_locs.array_indexes.size(); j++)
         {
           std::vector<bool> compare_constants_for_this_index(comparison_locs.constant_locations.size(), true);
           //     bool found_some_matching_constants = false;
@@ -442,7 +442,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
 
           bool all_match = true;
           // check that, for each things in the matching set, this array index is the same
-          for (int k = 1; k < this_matching_set.size(); k++)
+          for (unsigned int k = 1; k < this_matching_set.size(); k++)
           {
             std::cout << "Checking this for " << k << ", which is operand " << this_matching_set[k] << std::endl;
 
@@ -465,7 +465,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
               status() << "This and the last comparison\n ";
 
               assert(constant_comparison.size() == compare_constants_for_this_index.size());
-              for (int i = 0; i < constant_comparison.size(); i++)
+              for (unsigned int i = 0; i < constant_comparison.size(); i++)
               {
                 status() << "Comp: " << constant_comparison[i] << " and " << compare_constants_for_this_index[i];
                 bool and_result = compare_constants_for_this_index[i] & constant_comparison[i];
@@ -493,7 +493,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
 
         auto &first_expr_locs = array_index_locations[this_matching_set[0]];
         // replace array indices with local vars in the "where"
-        for (int i = 0; i < which_arrays_match.size(); i++)
+        for (unsigned int i = 0; i < which_arrays_match.size(); i++)
         {
           debug() << "CALLING replace array indices on expr " << expr2sygus(where) << eom;
           std::size_t const_index = 0;

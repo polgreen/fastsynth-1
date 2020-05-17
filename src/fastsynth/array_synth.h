@@ -61,7 +61,7 @@ inline bool operator==(const array_index_locst &a, const array_index_locst &b)
     }
     else
         return true;
-};
+}
 
 class array_syntht : public messaget
 {

@@ -265,7 +265,7 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
     result += "let (";
     const auto &var = to_let_expr(expr).variables();
     const auto &val = to_let_expr(expr).values();
-    for (int i = 0; i < var.size(); i++)
+    for (unsigned int i = 0; i < var.size(); i++)
     {
       result += "(" + expr2sygus(var[i], use_integers) + " " + expr2sygus(val[i], use_integers) + ")";
     }
