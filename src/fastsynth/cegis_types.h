@@ -6,6 +6,8 @@
 
 #include <util/std_expr.h>
 #include <util/std_types.h>
+#include <util/mathematical_types.h>
+#include <util/simplify_expr_class.h>
 
 
 class problemt

@@ -1,5 +1,4 @@
 SRC = fastsynth_main.cpp \
-
       smt2_frontend.cpp \
       c_frontend.cpp \
       sygus_frontend.cpp \
@@ -23,7 +22,7 @@ SRC = fastsynth_main.cpp \
       bool_synth_encoding.cpp \
       enumerative_learn.cpp program_generator_frontend.cpp \
       neural_learn.cpp output_generator_encoding.cpp enumerative_assignment_generator.cpp \
-      program_generator.cpp 
+      program_generator.cpp \
 
 
 OBJ+= ../../$(CPROVER_DIR)/src/ansi-c/ansi-c$(LIBEXT) \
