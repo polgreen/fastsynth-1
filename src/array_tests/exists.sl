@@ -1,3 +1,8 @@
+; with grammar produces solution synth_fun::inv-fn -> parameter0[0] + parameter0[1] == 1 && parameter0[0] * parameter0[0] <= parameter0[0]
+; currently not possible to generalise this
+; maybe try mutations on these solutions? or to find all possible valuations and then
+; convert that into ands and ors?
+
 (set-logic ALL)
 (synth-fun inv-fn ((x (Array Int Int))) Bool)
 (declare-var x (Array Int Int))

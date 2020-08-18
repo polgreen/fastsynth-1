@@ -51,35 +51,6 @@ bool array_syntht::bound_arrays(exprt &expr, std::size_t bound)
     std::cout << "Adding bounds outside of constraint \n";
     add_implication(expr, symbols_to_bound);
   }
-  // status() << "number of symbols to bound: "<< symbols_to_bound.size()<<eom;
-  // if (symbols_to_bound.size() > 0)
-  // {
-  //   status()<<"Bounding symbols \n"<<eom;
-  //   std::set<exprt>::iterator symbol_it = symbols_to_bound.begin();
-
-  //   // add a constraint that the property only holds if these variables have values less than the array size
-  //   // build implication which says that the property holds only if the local variables are within array bounds
-  //   exprt var_is_less_than_bound = binary_predicate_exprt(
-  //         *symbol_it, ID_lt, from_integer(max_array_index, symbol_it->type()));
-  //   added_implications.push_back(var_is_less_than_bound);
-
-  //   symbol_it++;
-  //   while (symbol_it != symbols_to_bound.end())
-  //   {
-  //     exprt next_var_is_less_than_bound = binary_predicate_exprt(
-  //           *symbol_it, ID_lt, from_integer(max_array_index, symbol_it->type()));
-  //     added_implications.push_back(next_var_is_less_than_bound);
-  //     var_is_less_than_bound = and_exprt(var_is_less_than_bound, next_var_is_less_than_bound);
-  //     symbol_it++;
-  //   }
-
-  //   implies_exprt implication(var_is_less_than_bound, expr);
-  //   expr = implication;
-  // }
-
-  // status() <<"Added implications: \n";
-  // for (const auto &e : added_implications)
-  //   status() << expr2sygus(e, false) << " " << eom;
 
   return true;
 }
@@ -189,10 +160,9 @@ void array_syntht::add_implication(exprt &expr, std::set<exprt> &symbols)
   }
 }
 
-// returns list of variables that index arrays
 bool array_syntht::bound_array_exprs(exprt &expr, std::size_t bound)
 {
-  // std::cout<<"bound "<< expr2sygus(expr, true) <<" id: "<<id2string(expr.id())<<std::endl;
+  std::cout << "bound " << expr2sygus(expr, true) << " id: " << id2string(expr.id()) << std::endl;
   if (expr.id() == ID_forall || expr.id() == ID_exists)
   {
     for (const auto &s : symbols_to_bound)

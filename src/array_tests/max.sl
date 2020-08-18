@@ -1,3 +1,4 @@
+; sygus solver times out. test solution?
 (set-logic ALL)
 (synth-fun inv-fn ((a (Array Int Int))(max Int)(i Int)) Bool)
 (declare-var a (Array Int Int))

@@ -1,6 +1,9 @@
+; solved with grammar
 (set-logic ALL)
 (synth-fun inv-fn ((x (Array Int Int)) (y (Array Int Int))(c1 Int) ) Bool)
 (declare-var x (Array Int Int))
+
+
 (declare-var x! (Array Int Int))
 (declare-var y (Array Int Int))
 (declare-var y! (Array Int Int))

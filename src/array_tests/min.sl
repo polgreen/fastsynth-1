@@ -1,3 +1,4 @@
+; suspect sygus solver times out?
 (set-logic ALL)
 (synth-fun inv-fn ((a (Array Int Int))(min Int)(i Int)) Bool)
 (declare-var a (Array Int Int))

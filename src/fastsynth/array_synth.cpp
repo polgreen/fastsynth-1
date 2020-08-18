@@ -5,7 +5,7 @@
 #include <util/arith_tools.h>
 #include <util/symbol_table.h>
 #include <util/string2int.h>
-#define MAX_ARRAY_SIZE 7
+#define MAX_ARRAY_SIZE 4
 #include <iostream>
 #include <cmath>
 #include "bitvector2integer.h"
@@ -93,6 +93,8 @@ void replace_quantifier_with_conjunction(exprt &expr, const std::size_t &bound)
 
       for (unsigned int i = 0; i < conjunction_size; i++)
       {
+        // replace_variable_with_constant(local_where, var_id,
+        //                                symbol_exprt("symbolic_index_" + std::to_string(i), integer_typet()));
         replace_variable_with_constant(local_where, var_id, from_integer(i, var.type()));
         result.operands().push_back(local_where);
         local_where = quant.where();
@@ -515,15 +517,15 @@ void array_syntht::add_quantifiers_back(exprt &expr)
         //       implication(is_less_than_bound, operands[0]);
         //   where = implication;
         // }
-        if (expr.id() == ID_and)
-        {
-          exprt index_is_positive = binary_predicate_exprt(
-              binding, ID_ge, from_integer(0, binding.type()));
+        // if (expr.id() == ID_and)
+        // {
+        //   exprt index_is_positive = binary_predicate_exprt(
+        //       binding, ID_ge, from_integer(0, binding.type()));
 
-          implies_exprt
-              implication(index_is_positive, operands[0]);
-          where = implication;
-        }
+        //   implies_exprt
+        //       implication(index_is_positive, operands[0]);
+        //   where = implication;
+        // }
         quantifier_exprt new_expr =
             (expr.id() == ID_and) ? quantifier_exprt(
                                         ID_forall, binding, where)
@@ -596,9 +598,9 @@ bool array_syntht::bound_arrays(problemt &problem, std::size_t bound)
 {
   max_array_index = bound;
 
-  for (auto &c : problem.constraints)
-    if (!bound_arrays(c, bound))
-      status() << "Warnig bounding array didn't work \n";
+  // for (auto &c : problem.constraints)
+  //   if (!bound_arrays(c, bound))
+  //     status() << "Warnig bounding array didn't work \n";
   //return false;
 
   for (auto &c : problem.constraints)
@@ -654,7 +656,13 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
 #ifdef FUDGE
     result = sygus_interface.fudge();
 #else
-    result = sygus_interface.doit(problem, true);
+    result = sygus_interface.doit(problem, true, false, array_size, 10);
+    if (result == decision_proceduret::resultt::D_ERROR)
+    {
+      sygus_interface.clear();
+      result = sygus_interface.doit(problem, true, true, array_size);
+    }
+    // result = sygus_interface.doit(problem, true, true, array_size);
 #endif
 
     switch (result)
@@ -696,7 +704,7 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
       }
       break;
       case decision_proceduret::resultt::D_UNSATISFIABLE:
-        status() << "UNSAT, got solution \n " << eom;
+        status() << "UNSAT, got solution with array size " + std::to_string(array_size) + " \n " << eom;
         solution = sygus_interface.solution;
         return decision_proceduret::resultt::D_SATISFIABLE;
       case decision_proceduret::resultt::D_ERROR:

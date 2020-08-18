@@ -1,3 +1,4 @@
+; times out in solver
 (set-logic ALL)
 (synth-fun inv-fn ((a (Array Int Int))(i Int)(i Int)) Bool)
 (declare-var a (Array Int Int))
@@ -22,7 +23,7 @@
 
 (constraint (=> (init-fn a i pos) (inv-fn a i pos)))
 (constraint (=> (and (inv-fn a i pos) (trans-fn a  i pos a! i! pos!)) (inv-fn a! i! pos!)))
-(constraint (=> (inv-fn a i i) (post-fn a i i)))
+(constraint (=> (inv-fn a i pos) (post-fn a i pos)))
 (check-synth)
 
 ; based on standard-sentinal-2c

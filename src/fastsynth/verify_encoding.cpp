@@ -137,12 +137,16 @@ counterexamplet verify_encodingt::get_counterexample(
     const decision_proceduret &solver) const
 {
   counterexamplet result;
+  std::cout << "Getting counterexample \n";
 
   // iterate over nondeterministic symbols, and get their value
   for (const auto &var : free_variables)
   {
+    std::cout << "Try to find for free var " << var.pretty() << std::endl;
+
     exprt value = solver.get(var);
     result.assignment[var] = value;
+    std::cout << " assignment is " << value.pretty() << std::endl;
     if (value == nil_exprt() && var.id() == ID_nondet_symbol)
     {
       nondet_symbol_exprt tmp_var = to_nondet_symbol_expr(var);

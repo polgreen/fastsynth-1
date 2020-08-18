@@ -1,3 +1,4 @@
+; sygus solver hangs with grammar
 (set-logic ALL)
 (synth-fun inv-fn ((x (Array Int Int)) (c Int)) Bool)
 (declare-var x (Array Int Int))

@@ -11,15 +11,15 @@ template <class containert>
 static void
 find_literals(std::set<constant_exprt> &result, const containert &expressions)
 {
-  for(const exprt &e : expressions)
-    for(auto it(e.unique_depth_cbegin()); it != e.unique_depth_cend(); ++it)
+  for (const exprt &e : expressions)
+    for (auto it(e.unique_depth_cbegin()); it != e.unique_depth_cend(); ++it)
     {
       const constant_exprt *const c =
-        expr_try_dynamic_cast<constant_exprt>(*it);
-      if(!c)
+          expr_try_dynamic_cast<constant_exprt>(*it);
+      if (!c)
         continue;
       const irep_idt &id = c->type().id();
-      if(ID_signedbv == id || ID_unsignedbv == id || ID_integer == id)
+      if (ID_signedbv == id || ID_unsignedbv == id || ID_integer == id)
         result.insert(*c);
     }
 }

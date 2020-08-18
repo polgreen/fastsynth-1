@@ -24,20 +24,23 @@ public:
     // output sygus file
     decision_proceduret::resultt doit(problemt &problem);
     decision_proceduret::resultt fudge();
-    decision_proceduret::resultt doit(problemt &problem, bool use_ints);
+    decision_proceduret::resultt doit(problemt &problem, bool use_ints, bool use_grammar, const int bound, const int timeout = 0);
     std::string declare_vars;
     std::string synth_fun;
     std::string constraints;
     std::string logic;
+    std::string literal_string;
+    bool use_grammar;
 
-    decision_proceduret::resultt solve();
+    decision_proceduret::resultt solve(const int timeout);
     void clear();
     std::map<irep_idt, exprt> result;
     solutiont solution;
 
 protected:
     decision_proceduret::resultt read_result(std::istream &in);
-    void build_query(problemt &problem);
+    std::string build_grammar(const symbol_exprt &function_symbol, const int &bound, const std::string &literal);
+    void build_query(problemt &problem, int bound);
     bool use_integers;
 };
 

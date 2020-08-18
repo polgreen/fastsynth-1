@@ -1,3 +1,4 @@
+; times out in grammar
 (set-logic ALL)
 (synth-fun inv-fn ((a (Array Int Int))(b (Array Int Int))) Bool)
 (declare-var a (Array Int Int))

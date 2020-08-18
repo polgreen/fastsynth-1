@@ -1,3 +1,4 @@
+; solvable
 (set-logic ALL)
 (synth-fun inv-fn ((i Int) (x (Array Int Int))) Bool)
 (declare-var x (Array Int Int))

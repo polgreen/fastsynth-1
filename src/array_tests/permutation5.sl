@@ -1,3 +1,5 @@
+
+; bug in generalisation
 (set-logic ALL)
 
 (synth-fun inv-fn ((a (Array Int Int))(b (Array Int Int)) (c Int)) Bool)

@@ -1,3 +1,4 @@
+; not solvable
 (set-logic ALL)
 (synth-fun inv-fn ((c Int) (x (Array Int Int))) Bool)
 (declare-var x (Array Int Int))

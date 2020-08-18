@@ -1,3 +1,4 @@
+; solved without grammar
 (set-logic ALL)
 (synth-fun inv-fn ((c Int) (k Int) (x (Array Int Int))) Bool)
 (declare-var x (Array Int Int))
