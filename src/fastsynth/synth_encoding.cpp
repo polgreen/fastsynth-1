@@ -150,51 +150,17 @@ void e_datat::setup(
       }
     }
 
-    // std::size_t unary_option_index = 0;
-    // // unary operand: array elements
-    // if (has_array_operand)
-    // {
-    //   std::cout << "adding array select to encoding, array max is " << ARRAY_MAX << " \n";
-    //   for (std::size_t index = 0; index < ARRAY_MAX; index++)
-    //   {
-    //     std::cout << "index " << index << "and pc " << pc << std::endl;
-    //     for (std::size_t operand0 = 0; operand0 < pc; operand0++)
-    //     {
-    //       std::cout << "operand " << operand0;
-    //       if (operand0 >= array_instructions.size())
-    //         continue;
-
-    //       irep_idt sel_id = id2string(identifier) + "_" +
-    //                         std::to_string(pc) + "_u" +
-    //                         std::to_string(unary_option_index) + "sel";
-    //       std::cout << "adding " << id2string(sel_id) << std::endl;
-
-    //       auto &option = instruction.add_option(sel_id);
-
-    //       option.operand0 = operand0;
-    //       option.operand1 = index;
-    //       option.operation = "array_select";
-    //       option.kind = instructiont::optiont::UNARY;
-    //       unary_option_index++;
-    //     }
-    //   }
-    // }
-
     // we only need array instructions for each parameter that is an array
     // We do not support operators that can be applied to arrays and produce
     // arrays as output.
-
-    if (/*pc >= arguments.size() ||*/ has_array_operand == 0)
+    if (pc >= arguments.size() || has_array_operand == 0)
       array_instructions.pop_back();
 
     // a binary operation
 
     static const irep_idt ops[] =
         {ID_plus, ID_minus, ID_shl, ID_bitand, ID_bitor, ID_bitxor,
-         ID_le, ID_lt, ID_equal, ID_notequal, "max", "min", ID_div, ID_lshr, "array_select"};
-    //  "forall_array_EQ",   "forall_array_LE", "forall_array_LT" };
-    // static const irep_idt ops[]=
-    ///     { ID_plus, ID_minus, ID_ashr, ID_shr, ID_bitor };
+         ID_le, ID_lt, ID_equal, ID_notequal, "max", "min", ID_div, ID_lshr, ID_index};
 
     std::size_t binary_option_index = 0;
 
@@ -213,7 +179,7 @@ void e_datat::setup(
           !enable_division)
         if (operation == ID_div)
           continue;
-      if (operation == "array_select" && has_array_operand == 0)
+      if (operation == ID_index && has_array_operand == 0)
         continue;
 
       for (std::size_t operand0 = 0; operand0 < pc; operand0++)
@@ -222,7 +188,8 @@ void e_datat::setup(
           // there is usually no point applying an operation to two
           // identical operands, with the exception of ID_plus, which
           // produces 2*x
-          if (operand0 == operand1 && operation != ID_plus)
+
+          if (operand0 == operand1 && (operation != ID_plus && operation != ID_index))
             continue;
 
           // many operators are commutative, no need
@@ -243,7 +210,7 @@ void e_datat::setup(
           // array operators can only be applied to arrays
           // and only indexed with constants or parameters
           // and only compared to constants or parameters
-          if ((operation == "array_element") &&
+          if ((operation == ID_index) &&
               (operand0 >= array_instructions.size() ||
                operand1 >= (arguments.size() + literals.size())))
             continue;
@@ -259,7 +226,7 @@ void e_datat::setup(
                 operation == ID_lt ||
                 operation == ID_le ||
                 operation == ID_notequal || // we got bitxor
-                operation == "array_select" ||
+                operation == ID_index ||
                 operation == "max" ||
                 operation == "min" ||
                 operation == ID_div)
@@ -365,15 +332,6 @@ exprt e_datat::instructiont::constraint(
 
     case optiont::UNARY:
     {
-      // if (option.operation == "array_element")
-      // {
-      //   assert(option.operand0 < array_results.size());
-      //   const auto &op0 = array_results[option.operand0];
-      //   // index array op0 with index op1
-      //   index_exprt array_sel = index_exprt(op0, from_integer(option.operand1, word_type));
-
-      //   result_expr = chain(option.sel, array_sel, result_expr);
-      // }
       break;
     }
     case optiont::BINARY: // a binary operation
@@ -392,23 +350,13 @@ exprt e_datat::instructiont::constraint(
         if_exprt if_expr(rel, op0, op1);
         result_expr = chain(option.sel, if_expr, result_expr);
       }
-      else if (option.operation == "array_select")
+      else if (option.operation == ID_index)
       {
         assert(option.operand0 < array_results.size());
         const auto &op0 = array_results[option.operand0];
         // index array op0 with index op1
         index_exprt tmp = index_exprt(op0, op1);
-
-        and_exprt bounds = and_exprt(
-            binary_relation_exprt(
-                op1, ID_lt, constant_exprt("10", word_type)),
-            binary_relation_exprt(
-                op1, ID_ge, constant_exprt("0", word_type)));
-
-        and_exprt and_expr(bounds, option.sel);
-        result_expr = if_exprt(and_expr, tmp, result_expr);
-
-        // result_expr = chain(option.sel, tmp, result_expr);
+        result_expr = chain(option.sel, tmp, result_expr);
       }
       else if (option.operation == "ID_div")
       {
@@ -522,6 +470,7 @@ exprt e_datat::result(const argumentst &arguments)
   argumentst args_with_consts(arguments);
   copy(begin(literals), end(literals), back_inserter(args_with_consts));
 
+  // build results
   for (std::size_t pc = 0; pc < instructions.size(); pc++)
   {
     std::cout << "adding array instructions \n";
@@ -698,7 +647,7 @@ exprt e_datat::get_function(
             binary_predicate_exprt rel(op0, ID_le, op1);
             result = if_exprt(rel, op0, op1);
           }
-          else if (binary_op.operation == "array_element")
+          else if (binary_op.operation == ID_index)
           {
             assert(binary_op.operand0 < array_results.size());
             op0 = array_results[binary_op.operand0];
@@ -722,58 +671,13 @@ exprt e_datat::get_function(
           assert(binary_op.operand0 < results.size());
           assert(binary_op.operand1 < results.size());
 
-          if (
-              binary_op.operation == "forall_array_LT" ||
-              binary_op.operation == "forall_array_LE" ||
-              binary_op.operation == "forall_array_EQ")
-          {
-            assert(binary_op.operand0 < array_results.size());
+          result = binary_exprt(
+              results[binary_op.operand0],
+              binary_op.operation,
+              results[binary_op.operand1],
+              bool_typet());
 
-            exprt op0 = array_results[binary_op.operand0];
-            exprt op1 = results[binary_op.operand1];
-
-            irep_idt comparator;
-            if (binary_op.operation == "forall_array_LT")
-              comparator = ID_lt;
-            else if (binary_op.operation == "forall_array_LE")
-              comparator = ID_le;
-            else
-              comparator = ID_equal;
-
-            exprt this_iter;
-            exprt previous_iter = and_exprt(
-                binary_predicate_exprt(
-                    index_exprt(op0, constant_exprt("0", word_type)),
-                    comparator,
-                    op1),
-                binary_predicate_exprt(
-                    index_exprt(op0, constant_exprt("1", word_type)),
-                    comparator,
-                    op1));
-
-            for (unsigned int i = 2; i < array_size; i++)
-            {
-              index_exprt index_expr(
-                  op0, symbol_exprt(integer2string(i, 10), word_type));
-
-              this_iter = binary_predicate_exprt(index_expr, comparator, op1);
-              previous_iter = and_exprt(this_iter, previous_iter);
-            }
-
-            assert(previous_iter.type().id() == ID_bool);
-            result = promotion(previous_iter, word_type);
-          }
-          else
-          {
-
-            result = binary_exprt(
-                results[binary_op.operand0],
-                binary_op.operation,
-                results[binary_op.operand1],
-                bool_typet());
-
-            result = promotion(result, word_type);
-          }
+          result = promotion(result, word_type);
         }
         break;
 
