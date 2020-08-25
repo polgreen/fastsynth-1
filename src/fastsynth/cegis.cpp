@@ -90,7 +90,7 @@ decision_proceduret::resultt cegist::loop(
 
       for (auto &f : solution.functions)
       {
-        f.second = simplify_expr(f.second, ns);
+        // f.second = simplify_expr(f.second, ns);
         status() << "FIRST:" << f.first.pretty() << "\nSECOND: " << f.second.pretty() << eom;
       }
 
