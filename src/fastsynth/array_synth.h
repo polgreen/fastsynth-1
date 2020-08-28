@@ -6,6 +6,8 @@
 #include <util/message.h>
 #include <iostream>
 
+void expand_let_expressions(exprt &expr);
+
 struct array_index_locst
 {
     irep_idt name;
@@ -80,17 +82,16 @@ public:
     std::set<irep_idt> declared_variables;
     decision_proceduret::resultt array_synth_loop(sygus_parsert &parser, problemt &problem);
 
-    bool bound_array_exprs(exprt &expr, std::size_t bound);
-    void expand_let_expressions(exprt &expr);
+    // bool bound_array_exprs(exprt &expr, std::size_t bound);
 
 private:
-    void remove_added_implication(exprt &expr);
+    // void remove_added_implication(exprt &expr);
     std::set<exprt> symbols_to_bound;
     std::set<exprt> symbols_to_bound_outside_constraint;
     void initialise_variable_set(const problemt &problem);
+    void bound_arrays(problemt &problem, std::size_t bound);
 
-    bool bound_arrays(problemt &problem, std::size_t bound);
-    bool bound_arrays(exprt &expr, std::size_t bound);
+    // bool bound_arrays(exprt &expr, std::size_t bound);
     mp_integer max_array_index;
     void unbound_arrays_in_solution(solutiont &solution);
     void add_quantifiers_back(exprt &expr);
@@ -106,12 +107,12 @@ private:
 
     bool single_local_var;
     std::size_t local_var_counter;
-    std::set<exprt> added_implications;
+    // std::set<exprt> added_implications;
     mp_integer max_index_modifier;
     void add_implication(exprt &expr, std::set<exprt> &symbols);
     bool compare_expr(const exprt &expr1, const exprt &expr2);
-    void bound_expression(const exprt &index_expr);
-    void contains_variable(const exprt &expr, bool &contains_var, bool &constains_local_var);
+    // void bound_expression(const exprt &index_expr);
+    // void contains_variable(const exprt &expr, bool &contains_var, bool &constains_local_var);
 };
 
 #endif /*CPROVER_FASTSYNTH_ARRAY_SYNTH_H_*/

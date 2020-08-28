@@ -159,7 +159,7 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
   else if (expr.id() == ID_unary_minus)
   {
     if (use_integers)
-      return result = "-" + expr2sygus(expr.op0(), use_integers);
+      return result = "(- " + expr2sygus(expr.op0(), use_integers) + ")";
     else
       result += "bvneg " + expr2sygus(expr.op0(), use_integers);
   }
@@ -218,7 +218,7 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
       }
     }
     else
-      return result = clean_id(array_string);
+      return clean_id(array_string);
   }
   else if (expr.id() == ID_constant)
   {
@@ -229,7 +229,11 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
     }
     else if (to_constant_expr(expr).type().id() == ID_integer)
     {
-      return result = clean_id(to_constant_expr(expr).get_value());
+      result = clean_id(to_constant_expr(expr).get_value());
+      if (result.front() == '-')
+        return "(- " + result + ")";
+      else
+        return result;
     }
     else if (to_constant_expr(expr).type().id() == ID_bool)
       return result = clean_id(to_constant_expr(expr).get_value());
@@ -407,7 +411,6 @@ void sygus_interfacet::build_query(problemt &problem, int bound)
 
   for (const auto &f : problem.constraints)
   {
-    std::cout << "Output constraint, use integers " << use_integers << std::endl;
     constraints += "(constraint " + expr2sygus(f, use_integers) + ")\n";
   }
 }

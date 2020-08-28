@@ -4,34 +4,6 @@
 #include <util/mathematical_types.h>
 #include <util/arith_tools.h>
 
-void replace_local_var(exprt &expr, const irep_idt &target, exprt &replacement)
-{
-  if (expr.id() == ID_symbol)
-  {
-    if (to_symbol_expr(expr).get_identifier() == target)
-      expr = replacement;
-  }
-  for (auto &op : expr.operands())
-    replace_local_var(op, target, replacement);
-}
-
-void array_syntht::expand_let_expressions(exprt &expr)
-{
-  if (expr.id() == ID_let)
-  {
-    auto &let_expr = to_let_expr(expr);
-    for (unsigned int i = 0; i < let_expr.variables().size(); i++)
-    {
-      INVARIANT(let_expr.variables()[i].id() == ID_symbol, "Let expression should have list of symbols");
-      replace_local_var(let_expr.where(), to_symbol_expr(let_expr.variables()[i]).get_identifier(), let_expr.values()[i]);
-    }
-    expr = let_expr.where();
-    expand_let_expressions(expr);
-  }
-  for (auto &op : expr.operands())
-    expand_let_expressions(op);
-}
-
 bool array_syntht::bound_arrays(exprt &expr, std::size_t bound)
 {
   symbols_to_bound.clear();
@@ -53,27 +25,6 @@ bool array_syntht::bound_arrays(exprt &expr, std::size_t bound)
   }
 
   return true;
-}
-
-void array_syntht::unbound_arrays_in_solution(solutiont &solution)
-{
-  for (auto &e : solution.functions)
-  {
-    expand_let_expressions(e.second);
-    status() << "after expanding let:\n"
-             << expr2sygus(e.second, true) << eom;
-  }
-  for (auto &e : solution.functions)
-  {
-    remove_added_implication(e.second);
-    status() << "after removing implications :\n"
-             << expr2sygus(e.second, true) << eom;
-  }
-  for (auto &e : solution.functions)
-    add_quantifiers_back(e.second);
-
-  for (auto &e : solution.functions)
-    debug() << "after adding quant back; " << expr2sygus(e.second, true) << eom;
 }
 
 void array_syntht::contains_variable(const exprt &expr, bool &contains_var, bool &contains_local_var)

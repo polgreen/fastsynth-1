@@ -4,7 +4,7 @@ SRC = fastsynth_main.cpp \
       literals.cpp solver_learn.cpp incremental_solver_learn.cpp \
       synth_encoding.cpp sygus_parser.cpp fourier_motzkin.cpp \
       symex_problem_factory.cpp array_cegis.cpp sygus_interface.cpp \
-      array_synth.cpp bitvector2integer.cpp bound_arrays.cpp
+      array_synth.cpp bitvector2integer.cpp array_generalize.cpp 
 
 OBJ+= ../../$(CPROVER_DIR)/src/ansi-c/ansi-c$(LIBEXT) \
       ../../$(CPROVER_DIR)/src/assembler/assembler$(LIBEXT) \
