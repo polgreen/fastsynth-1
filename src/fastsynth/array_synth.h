@@ -46,21 +46,11 @@ struct expr_array_index_locst
 inline bool operator==(const array_index_locst &a, const array_index_locst &b)
 {
     if (a.name != b.name)
-    {
-        // std::cout<<"Name didn't match"<<std::endl;
-        // std::cout<<a.name <<"!="<< b.name<<std::endl;
         return false;
-    }
-    if (a.locations != b.locations)
-    {
-        //  std::cout<<"Locations didn't match"<<std::endl;
-        //  return false;
-    }
+    // if (a.locations != b.locations)
+    //  return false;
     if (a.index_adjustments != b.index_adjustments)
-    {
-        // std::cout<<"Adjustments didn't match"<<std::endl;
         return false;
-    }
     else
         return true;
 }
@@ -82,16 +72,12 @@ public:
     std::set<irep_idt> declared_variables;
     decision_proceduret::resultt array_synth_loop(sygus_parsert &parser, problemt &problem);
 
-    // bool bound_array_exprs(exprt &expr, std::size_t bound);
-
 private:
-    // void remove_added_implication(exprt &expr);
     std::set<exprt> symbols_to_bound;
     std::set<exprt> symbols_to_bound_outside_constraint;
     void initialise_variable_set(const problemt &problem);
     void bound_arrays(problemt &problem, std::size_t bound);
 
-    // bool bound_arrays(exprt &expr, std::size_t bound);
     mp_integer max_array_index;
     void unbound_arrays_in_solution(solutiont &solution);
     void add_quantifiers_back(exprt &expr);
@@ -107,12 +93,9 @@ private:
 
     bool single_local_var;
     std::size_t local_var_counter;
-    // std::set<exprt> added_implications;
     mp_integer max_index_modifier;
     void add_implication(exprt &expr, std::set<exprt> &symbols);
     bool compare_expr(const exprt &expr1, const exprt &expr2);
-    // void bound_expression(const exprt &index_expr);
-    // void contains_variable(const exprt &expr, bool &contains_var, bool &constains_local_var);
 };
 
 #endif /*CPROVER_FASTSYNTH_ARRAY_SYNTH_H_*/
