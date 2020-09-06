@@ -154,6 +154,7 @@ bool array_syntht::find_array_indices(const exprt &expr,
       if (new_array)
       {
         this_expr.array_indexes.push_back(array_index_locst());
+        this_array_idx = this_expr.array_indexes.size() - 1;
       }
       auto &this_array = this_expr.array_indexes[this_array_idx];
       this_array.name = name;
