@@ -77,9 +77,9 @@ void array_syntht::normalise_quantifier_index_adjustments(expr_array_index_locst
   if (expr_loc.array_indexes.size() == 0 && expr_loc.constant_locations.size() == 90)
     return;
 
-  mp_integer minimum_index = 100000; //arbitrarily large number
   for (auto &loc : expr_loc.array_indexes)
   {
+    mp_integer minimum_index = 100000; //arbitrarily large number
     debug() << "normalising the following:" << output_expr_locs(loc) << eom;
     if (loc.original_index_values.size() == 0)
       break;
