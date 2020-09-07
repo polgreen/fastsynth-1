@@ -31,6 +31,20 @@ void expand_let_expressions(problemt &problem)
     expand_let_expressions(expr);
 }
 
+solutiont array_syntht::build_solution(const solutiont &solution)
+{
+  // INVARIANT(solution.functions.size() == 1,
+  //           "only single solution synthesis is supported for array synth");
+
+  // result exprt;
+  // for (const auto &partial_sol : solutions_so_far)
+  // {
+  //   if (partial_sol.lower_bound && partial_sol.upper_bound)
+  //     exprt =
+  // }
+  return solution;
+}
+
 decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parser, problemt &problem)
 {
   initialise_variable_set(problem);
@@ -88,7 +102,7 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
       // add solution to the rest of the solution we have obtained so far
 
       // verify
-      switch (verify(sygus_interface.solution))
+      switch (verify(build_solution(sygus_interface.solution)))
       {
       case decision_proceduret::resultt::D_SATISFIABLE:
       {
