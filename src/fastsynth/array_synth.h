@@ -43,6 +43,13 @@ struct expr_array_index_locst
     std::vector<constant_exprt> constant_values;
 };
 
+struct partial_solutiont
+{
+    exprt predicate;
+    optionalt<std::size_t> lower_bound;
+    optionalt<std::size_t> upper_bound;
+};
+
 inline bool operator==(const array_index_locst &a, const array_index_locst &b)
 {
     if (a.name != b.name)
@@ -77,6 +84,8 @@ private:
     std::set<exprt> symbols_to_bound_outside_constraint;
     void initialise_variable_set(const problemt &problem);
     void bound_arrays(problemt &problem, std::size_t bound);
+    std::vector<partial_solutiont> solutions_so_far;
+    solutiont build_solution(const solutiont &solution);
 
     mp_integer max_array_index;
     void unbound_arrays_in_solution(solutiont &solution);
