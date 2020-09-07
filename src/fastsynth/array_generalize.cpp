@@ -58,7 +58,9 @@ void sort_operands(exprt &expr)
   for (auto &op : expr.operands())
     sort_operands(op);
 
-  std::sort(expr.operands().begin(), expr.operands().end());
+  // sort operands of commutative operators
+  if (expr.id() == ID_and || expr.id() == ID_or || expr.id() == ID_plus || expr.id() == ID_equal)
+    std::sort(expr.operands().begin(), expr.operands().end());
 }
 
 // void array_syntht::remove_added_implication(exprt &expr)
@@ -481,6 +483,7 @@ void array_syntht::unbound_arrays_in_solution(solutiont &solution)
   for (auto &e : solution.functions)
   {
     expand_let_expressions(e.second);
+    sort_operands(e.second);
     debug() << "after expanding let:\n"
             << expr2sygus(e.second, true) << eom;
   }
