@@ -2,6 +2,8 @@
 ; currently not possible to generalise this
 ; maybe try mutations on these solutions? or to find all possible valuations and then
 ; convert that into ands and ors?
+; try removing multiply from grammar
+; solvable with new grammar?
 
 (set-logic ALL)
 (synth-fun inv-fn ((x (Array Int Int))) Bool)

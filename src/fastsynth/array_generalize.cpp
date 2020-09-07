@@ -53,6 +53,14 @@ void expand_let_expressions(exprt &expr)
     expand_let_expressions(op);
 }
 
+void sort_operands(exprt &expr)
+{
+  for (auto &op : expr.operands())
+    sort_operands(op);
+
+  std::sort(expr.operands().begin(), expr.operands().end());
+}
+
 // void array_syntht::remove_added_implication(exprt &expr)
 // {
 //   debug() << "List of " << added_implications.size() << " added implications ";
