@@ -326,21 +326,21 @@ std::string remove_synth_prefix(std::string in)
 std::string sygus_interfacet::build_grammar(
     const symbol_exprt &function_symbol, const int &bound, const std::string &literal)
 {
-  std::string bools;
-  std::string integers;
+  std::string booldecls = "";
+  std::string integers = "";
   if (!use_integers || !use_grammar)
   {
     std::cout << "do not use grammar " << std::endl;
-    return bools;
+    return booldecls;
   }
 
-  bools += "(B Bool ((and B B) (or B B) (not B)\n";
-  bools += "(= I I) (<= I I) (>= I I))\n";
+  booldecls += "(B Bool ((and B B) (or B B) (not B) (and C C) (or C C)))\n";
+  booldecls += "(C Bool ((= I I) (<= I I) (>= I I))\n";
 
   integers += "(I Int (0 1 " + literal + "\n";
   integers += "(+ I I)\n";
   integers += "(- I I)\n";
-  integers += "(* I I)\n";
+  //integers += "(* I I)\n";
 
   int count = 0;
   for (const auto &d : to_mathematical_function_type(function_symbol.type()).domain())
@@ -348,7 +348,7 @@ std::string sygus_interfacet::build_grammar(
     if (d.id() == ID_integer)
       integers += "parameter" + integer2string(count) + " \n";
     else if (d.id() == ID_bool)
-      bools += "parameter" + integer2string(count) + " \n";
+      booldecls += "parameter" + integer2string(count) + " \n";
     else if (d.id() == ID_array)
     {
       for (int i = 0; i < bound; i++)
@@ -356,12 +356,12 @@ std::string sygus_interfacet::build_grammar(
     }
     count++;
   }
-  bools += ")\n";
+  booldecls += ")\n";
   integers += ")\n";
   if (to_mathematical_function_type(function_symbol.type()).codomain().id() == ID_bool)
-    return "((B Bool) (I Int))\n(" + bools + integers + "))";
+    return "((B Bool) (C Bool) (I Int))\n(" + booldecls + integers + "))";
   else
-    return "((I Int) (B Bool))\n(" + integers + bools + "))";
+    return "((I Int) (B Bool) (C Bool))\n(" + integers + booldecls + "))";
 }
 
 void sygus_interfacet::build_query(problemt &problem, int bound)
