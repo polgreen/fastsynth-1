@@ -304,7 +304,7 @@ std::string expr2sygus(const exprt &expr, bool use_integers)
   }
   else
   {
-    std::cout << "WARNING: unsupported expression type" << expr.pretty() << std::endl;
+    // std::cout << "WARNING: unsupported expression type" << expr.pretty() << std::endl;
     result += id2string(expr.id());
     // assert(0);
   }
