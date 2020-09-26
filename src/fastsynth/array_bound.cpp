@@ -22,7 +22,7 @@ void replace_variable_with_constant(exprt &expr, irep_idt var_name, const exprt 
 // if a forall expression has only one variable, and that variable
 // is a small bitvector, attempts to replace the forall expr with
 // a conjunction over the indices in the vector
-void replace_quantifier_with_conjunction(exprt &expr, const std::vector<std::size_t> &indices)
+void replace_quantifier_with_conjunction(exprt &expr, const std::vector<mp_integer> &indices)
 {
   for (auto &op : expr.operands())
     replace_quantifier_with_conjunction(op, indices);
@@ -58,9 +58,16 @@ void replace_quantifier_with_conjunction(exprt &expr, const std::vector<std::siz
   }
 }
 
+void array_syntht::bound_arrays(problemt &problem)
+{
+  INVARIANT(indices.size() > 0, "size of array is 0");
+  for (auto &c : problem.constraints)
+    replace_quantifier_with_conjunction(c, indices);
+}
+
 void array_syntht::bound_arrays(problemt &problem, std::size_t bound)
 {
-  std::vector<std::size_t> indices;
+  indices.clear();
   for (std::size_t i = 0; i < bound; i++)
     indices.push_back(i);
 

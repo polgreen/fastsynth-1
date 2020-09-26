@@ -460,14 +460,16 @@ void array_syntht::replace_array_indices_with_local_vars(
   if (expr.id() == ID_constant &&
       replace_constants && constant_vector_idx < locs.constant_adjustments.size())
   {
-    debug() << "Attempting to replace constant, constant vector idx: " << constant_vector_idx
-            << " and size of constant adjustments " << locs.constant_adjustments.size() << eom;
     if (replace_these_constants[constant_vector_idx])
     {
+      debug() << "Attempting to replace constant in expression " << expr2sygus(expr)
+              << ", constant index adjustment = "
+              << locs.constant_adjustments[constant_vector_idx] << eom;
       exprt new_expr = binary_exprt(quantifier_binding, ID_plus,
                                     from_integer(locs.constant_adjustments[constant_vector_idx],
                                                  quantifier_binding.type()));
       expr = new_expr;
+      debug() << "Result " << expr2sygus(expr) << eom;
     }
     constant_vector_idx++;
   }

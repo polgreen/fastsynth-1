@@ -324,22 +324,25 @@ std::string remove_synth_prefix(std::string in)
 }
 
 std::string sygus_interfacet::build_grammar(
-    const symbol_exprt &function_symbol, const int &bound, const std::string &literal)
+    const symbol_exprt &function_symbol, const int &bound, const std::vector<std::string> &literals)
 {
   std::string booldecls = "";
   std::string integers = "";
   if (!use_integers || !use_grammar)
   {
-    std::cout << "do not use grammar " << std::endl;
+    // std::cout << "do not use grammar " << std::endl;
     return booldecls;
   }
 
   booldecls += "(B Bool ((and B B) (or B B) (not B) (and C C) (or C C)))\n";
-  booldecls += "(C Bool ((= I I) (<= I I) (>= I I))\n";
+  booldecls += "(C Bool ((= I I) (<= I I) (>= I I)\n";
 
-  integers += "(I Int (0 1 " + literal + "\n";
+  integers += "(I Int (0 1 ";
+  for (const auto &l : literals)
+    integers += l + " ";
   integers += "(+ I I)\n";
   integers += "(- I I)\n";
+
   //integers += "(* I I)\n";
 
   int count = 0;
@@ -356,12 +359,12 @@ std::string sygus_interfacet::build_grammar(
     }
     count++;
   }
-  booldecls += ")\n";
-  integers += ")\n";
+  booldecls += "))\n";
+  integers += "))\n";
   if (to_mathematical_function_type(function_symbol.type()).codomain().id() == ID_bool)
-    return "((B Bool) (C Bool) (I Int))\n(" + booldecls + integers + "))";
+    return "((B Bool) (C Bool) (I Int))\n(" + booldecls + integers + ")";
   else
-    return "((I Int) (B Bool) (C Bool))\n(" + integers + booldecls + "))";
+    return "((I Int) (B Bool) (C Bool))\n(" + integers + booldecls + ")";
 }
 
 void sygus_interfacet::build_query(problemt &problem, int bound)
@@ -377,10 +380,11 @@ void sygus_interfacet::build_query(problemt &problem, int bound)
       declare_vars += "(declare-var " + expr2sygus(var, use_integers) + " " + type2sygus(var.type()) + ")\n";
     }
   }
+  std::vector<std::string> literal_strings;
   for (const auto &f : problem.literals)
   {
     if (f.get_value() != "0" && f.get_value() != "1")
-      literal_string += id2string(f.get_value()) + " ";
+      literal_strings.push_back(id2string(f.get_value()));
   }
 
   for (const auto &f : problem.synth_fun_set)
@@ -393,7 +397,7 @@ void sygus_interfacet::build_query(problemt &problem, int bound)
     else
     {
       symbol_exprt var = symbol_exprt(f, problem.id_map.at(f).type);
-      std::string grammar = build_grammar(var, bound, literal_string);
+      std::string grammar = build_grammar(var, bound, literal_strings);
 
       synth_fun += "(synth-fun " + remove_synth_prefix(expr2sygus(var, use_integers)) + "(";
       std::size_t count = 0;
@@ -418,6 +422,16 @@ void sygus_interfacet::build_query(problemt &problem, int bound)
 decision_proceduret::resultt sygus_interfacet::doit(problemt &problem)
 {
   return doit(problem, false, false, 2);
+}
+
+void sygus_interfacet::print_problem(problemt &problem)
+{
+  use_integers = true;
+  use_grammar = false;
+  build_query(problem, 2);
+  std::string query = logic + declare_vars + synth_fun + constraints + "(check-synth)\n";
+  std::cout
+      << query << std::endl;
 }
 
 decision_proceduret::resultt sygus_interfacet::fudge()
@@ -483,7 +497,6 @@ void sygus_interfacet::clear()
   constraints.clear();
   declare_vars.clear();
   synth_fun.clear();
-  literal_string.clear();
 }
 decision_proceduret::resultt sygus_interfacet::read_result(std::istream &in)
 {

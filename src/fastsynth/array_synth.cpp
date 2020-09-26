@@ -31,17 +31,53 @@ void expand_let_expressions(problemt &problem)
     expand_let_expressions(expr);
 }
 
+void array_syntht::process_counterexample(problemt &problem,
+                                          const counterexamplet &cex)
+{
+  std::cout << "processing counterexamples" << std::endl;
+
+  for (const auto &ass : cex.assignment)
+  {
+    if (ass.second.id() == ID_with)
+    {
+      status() << "Array counterexample assignment was an ID with" << eom;
+      status() << "where " << to_with_expr(ass.second).where().pretty() << eom;
+      exprt where = to_with_expr(ass.second).where();
+      if (where.id() == ID_constant)
+      {
+        mp_integer cex_value;
+        to_integer(to_constant_expr(where), cex_value);
+        // assume this must be new? if not, something has gone wrong
+        bool is_new = true;
+
+        for (const auto &i : indices)
+          if (i == cex_value)
+            is_new = false;
+
+        if (is_new)
+          indices.push_back(cex_value);
+        else
+        {
+          mp_integer max = 0;
+          for (const auto &i : indices)
+            if (i > max)
+              max = i;
+
+          indices.push_back(max + 1);
+        }
+      }
+    }
+  }
+}
+
 solutiont array_syntht::build_solution(const solutiont &solution)
 {
-  // INVARIANT(solution.functions.size() == 1,
-  //           "only single solution synthesis is supported for array synth");
 
-  // result exprt;
-  // for (const auto &partial_sol : solutions_so_far)
-  // {
-  //   if (partial_sol.lower_bound && partial_sol.upper_bound)
-  //     exprt =
-  // }
+  INVARIANT(solution.functions.size() == 1,
+            "only single solution synthesis is supported for array synth");
+  partial_solutiont new_solution;
+  new_solution.predicate = solution.functions.begin()->second;
+
   return solution;
 }
 
@@ -59,13 +95,13 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
   verify.use_smt = true;
 
   array_size = 2;
-  while (array_size < MAX_ARRAY_SIZE)
-  {
-    problem = local_problem;
-    bound_arrays(problem, array_size);
-    sygus_interface.clear();
-    status() << "Array size bounded to width " << array_size << eom;
+  problem = local_problem;
+  bound_arrays(problem, array_size);
+  sygus_interface.clear();
+  status() << "Array size bounded to width " << array_size << eom;
 
+  while (indices.size() < MAX_ARRAY_SIZE)
+  {
     decision_proceduret::resultt result;
 #ifdef FUDGE
     result = sygus_interface.fudge();
@@ -110,13 +146,15 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
                  << eom;
         counterexamplet cex = verify.get_counterexample();
         // update set of indices for synthesis, based on counterexample
+        process_counterexample(problem, cex);
+        // array_size++;
 
         // clear last sygus solution
         sygus_interface.solution.functions.clear();
       }
       break;
       case decision_proceduret::resultt::D_UNSATISFIABLE:
-        status() << "UNSAT, got solution with array size " + std::to_string(array_size) + " \n " << eom;
+        status() << "UNSAT, got solution with array size " << indices.size() << " \n " << eom;
         solution = sygus_interface.solution;
         return decision_proceduret::resultt::D_SATISFIABLE;
       case decision_proceduret::resultt::D_ERROR:

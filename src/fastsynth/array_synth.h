@@ -68,10 +68,8 @@ public:
     array_syntht(
         message_handlert &_message_handler) : messaget(_message_handler),
                                               max_array_index(2),
-
-                                              single_local_var(true),
-                                              local_var_counter(0),
-                                              max_index_modifier(0)
+                                              local_var_counter(0)
+    //   max_index_modifier(0)
     {
     }
     sygus_interfacet sygus_interface;
@@ -80,11 +78,13 @@ public:
     decision_proceduret::resultt array_synth_loop(sygus_parsert &parser, problemt &problem);
 
 private:
-    std::set<exprt> symbols_to_bound;
-    std::set<exprt> symbols_to_bound_outside_constraint;
+    std::vector<mp_integer> indices;
+    void process_counterexample(problemt &problem, const counterexamplet &cex);
     void initialise_variable_set(const problemt &problem);
     void bound_arrays(problemt &problem, std::size_t bound);
-    std::vector<partial_solutiont> solutions_so_far;
+    void bound_arrays(problemt &problem);
+
+    std::list<partial_solutiont> solutions_so_far;
     solutiont build_solution(const solutiont &solution);
 
     mp_integer max_array_index;
@@ -100,9 +100,9 @@ private:
         bool replace_constants, std::size_t &constant_vector_idx, const symbol_exprt &quantifier_binding,
         const std::vector<bool> &replace_these_constants);
 
-    bool single_local_var;
+    // bool single_local_var;
     std::size_t local_var_counter;
-    mp_integer max_index_modifier;
+    // mp_integer max_index_modifier;
     void add_implication(exprt &expr, std::set<exprt> &symbols);
     bool compare_expr(const exprt &expr1, const exprt &expr2);
 };
