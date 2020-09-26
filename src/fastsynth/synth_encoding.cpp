@@ -7,7 +7,7 @@
 
 #include "synth_encoding.h"
 
-#define ARRAY_MAX 2
+#define ARRAY_MAX 5
 
 #include <algorithm>
 #include <iostream>
@@ -117,7 +117,11 @@ void e_datat::setup(
 
     // constant -- hardwired default, not an option
     irep_idt const_val_id = id2string(identifier) + "_" + std::to_string(pc) + "_cval";
-    instruction.constant_val = symbol_exprt(const_val_id, word_type);
+
+    if (word_type.id() == ID_integer)
+      instruction.constant_val = symbol_exprt("0", word_type);
+    else
+      instruction.constant_val = symbol_exprt(const_val_id, word_type);
 
     // one of the arguments or constants
     // or array element of one of the arguments
@@ -177,12 +181,12 @@ void e_datat::setup(
 
     // a binary operation
 
-    // static const irep_idt ops[] =
-    //     {ID_plus, ID_minus, ID_shl, ID_bitand, ID_bitor, ID_bitxor,
-    //      ID_le, ID_lt, ID_equal, ID_notequal, "max", "min", ID_div, ID_lshr, ID_index};
     static const irep_idt ops[] =
-        {ID_bitand, ID_bitor,
-         ID_le, ID_lt, ID_equal, ID_notequal};
+        {ID_plus}; //, ID_minus, ID_shl,
+                   //  ID_le, ID_lt, ID_equal, ID_notequal, "max", "min", ID_index};
+    // static const irep_idt ops[] =
+    //     {ID_bitand, ID_bitor,
+    //      ID_le, ID_lt, ID_equal, ID_notequal};
 
     std::size_t binary_option_index = 0;
 
@@ -343,13 +347,13 @@ exprt e_datat::instructiont::constraint(
     {
       exprt promoted_arg =
           promotion(arguments[option.parameter_number], word_type);
-      if (!initialised)
-      {
-        result_expr = promoted_arg;
-        initialised = true;
-      }
-      else
-        result_expr = chain(option.sel, promoted_arg, result_expr);
+      // if (!initialised)
+      // {
+      //   result_expr = promoted_arg;
+      //   initialised = true;
+      // }
+      // else
+      result_expr = chain(option.sel, promoted_arg, result_expr);
     }
     break;
 
@@ -559,69 +563,71 @@ exprt e_datat::get_function(
 {
   assert(!instructions.empty());
 
-  std::vector<exprt> array_results;
-  array_results.resize(array_instructions.size(), nil_exprt());
+  // std::vector<exprt> array_results;
+  // array_results.resize(array_instructions.size(), nil_exprt());
 
   std::vector<exprt> results;
   results.resize(instructions.size(), nil_exprt());
 
-  for (std::size_t pc = 0; pc < array_instructions.size(); pc++)
-  {
-    const auto &array_instruction = array_instructions[pc];
-    exprt &array_result = array_results[pc];
-    // we now go _backwards_ through the options, as we've
-    // built the ite inside-out
-    for (instructiont::optionst::const_reverse_iterator o_it =
-             array_instruction.options.rbegin();
-         array_result.is_nil() && o_it != array_instruction.options.rend();
-         o_it++)
-    {
-      if (solver.get(o_it->sel).is_true())
-      {
-        switch (o_it->kind)
-        {
-        case instructiont::optiont::ARRAY_PARAMETER:
-        {
-          const size_t num_params = parameter_types.size();
-          if (o_it->parameter_number < num_params)
-          {
-            irep_idt p_identifier =
-                "synth::parameter" + std::to_string(o_it->parameter_number);
-            array_result = promotion(
-                symbol_exprt(
-                    p_identifier, parameter_types[o_it->parameter_number]),
-                word_type);
-          }
-          break;
-        }
-        case instructiont::optiont::PARAMETER:
-        case instructiont::optiont::BINARY:
-        case instructiont::optiont::UNARY:
-        case instructiont::optiont::BINARY_PREDICATE:
-        case instructiont::optiont::ITE:
-        case instructiont::optiont::NONE:
-          break;
-        }
-      }
-      // constant, this is the last resort when none of the
-      // selectors is true
-      if (array_result.is_nil())
-      {
-        INVARIANT(
-            has_array_operand > 0,
-            "shouldn't get here if we have no array operands");
-        for (std::size_t i = 0; i < parameter_types.size(); i++)
-        {
-          if (parameter_types[i].id() == ID_array)
-          {
-            irep_idt p_identifier = "synth::parameter" + std::to_string(i);
-            array_result = promotion(
-                symbol_exprt(p_identifier, parameter_types[i]), word_type);
-          }
-        }
-      }
-    }
-  }
+  // for (std::size_t pc = 0; pc < array_instructions.size(); pc++)
+  // {
+  //   std::cout << "check array instruction \n";
+  //   const auto &array_instruction = array_instructions[pc];
+  //   exprt &array_result = array_results[pc];
+  //   // we now go _backwards_ through the options, as we've
+  //   // built the ite inside-out
+  //   for (instructiont::optionst::const_reverse_iterator o_it =
+  //            array_instruction.options.rbegin();
+  //        array_result.is_nil() && o_it != array_instruction.options.rend();
+  //        o_it++)
+  //   {
+  //     if (solver.get(o_it->sel).is_true())
+  //     {
+
+  //       switch (o_it->kind)
+  //       {
+  //       case instructiont::optiont::ARRAY_PARAMETER:
+  //       {
+  //         const size_t num_params = parameter_types.size();
+  //         if (o_it->parameter_number < num_params)
+  //         {
+  //           irep_idt p_identifier =
+  //               "synth::parameter" + std::to_string(o_it->parameter_number);
+  //           array_result = promotion(
+  //               symbol_exprt(
+  //                   p_identifier, parameter_types[o_it->parameter_number]),
+  //               word_type);
+  //         }
+  //         break;
+  //       }
+  //       case instructiont::optiont::PARAMETER:
+  //       case instructiont::optiont::BINARY:
+  //       case instructiont::optiont::UNARY:
+  //       case instructiont::optiont::BINARY_PREDICATE:
+  //       case instructiont::optiont::ITE:
+  //       case instructiont::optiont::NONE:
+  //         break;
+  //       }
+  //     }
+  //     // constant, this is the last resort when none of the
+  //     // selectors is true
+  //     if (array_result.is_nil())
+  //     {
+  //       INVARIANT(
+  //           has_array_operand > 0,
+  //           "shouldn't get here if we have no array operands");
+  //       for (std::size_t i = 0; i < parameter_types.size(); i++)
+  //       {
+  //         if (parameter_types[i].id() == ID_array)
+  //         {
+  //           irep_idt p_identifier = "synth::parameter" + std::to_string(i);
+  //           array_result = promotion(
+  //               symbol_exprt(p_identifier, parameter_types[i]), word_type);
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
 
   for (std::size_t pc = 0; pc < instructions.size(); pc++)
   {
@@ -631,6 +637,7 @@ exprt e_datat::get_function(
 
     // we now go _backwards_ through the options, as we've
     // built the ite inside-out
+    std::cout << "building instruction " << pc << std::endl;
 
     for (instructiont::optionst::const_reverse_iterator
              o_it = instruction.options.rbegin();
@@ -639,6 +646,8 @@ exprt e_datat::get_function(
     {
       if (solver.get(o_it->sel).is_true())
       {
+        std::cout << "Found true selector variable\n";
+
         switch (o_it->kind)
         {
         case instructiont::optiont::ARRAY_PARAMETER:
@@ -755,11 +764,16 @@ exprt e_datat::get_function(
     // selectors is true
     if (result.is_nil())
     {
+      std::cout << "result was nil, get constant" << std::endl;
       if (constant_variables)
+      {
+        std::cout << "constant variables is true" << std::endl;
         result = instruction.constant_val;
+      }
       else
         result = solver.get(instruction.constant_val);
     }
+    std::cout << "Result " << result.pretty() << std::endl;
   }
 
   return promotion(results.back(), return_type);
