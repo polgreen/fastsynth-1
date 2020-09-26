@@ -70,6 +70,7 @@ int sygus_frontend(const cmdlinet &cmdline)
 
   symbol_tablet symbol_table;
   namespacet ns(symbol_table);
+
   cegist cegis(ns);
   cegis.set_message_handler(message_handler);
 
@@ -109,6 +110,12 @@ int sygus_frontend(const cmdlinet &cmdline)
 
   if (cmdline.isset("literals"))
     add_literals(problem);
+
+#if 0
+  sygus_interfacet sygus_interface;
+  sygus_interface.print_problem(problem);
+  return 1;
+#endif
 
   auto start_time = std::chrono::steady_clock::now();
   /// ARRAY SYNTHESIS
