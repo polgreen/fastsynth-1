@@ -168,6 +168,8 @@ bool array_syntht::find_array_indices(const exprt &expr,
       }
       auto &this_array = this_expr.array_indexes[this_array_idx];
       this_array.name = name;
+      std::string id = "local_var";
+      this_array.quantifier_binding = symbol_exprt(id, to_index_expr(expr).index().type());
 
       // find linear relation between indices
       mp_integer value = 0;
@@ -178,9 +180,8 @@ bool array_syntht::find_array_indices(const exprt &expr,
       this_array.original_index_values.push_back(value);
 
       this_array.locations.push_back(std::pair<int, int>(depth, distance_from_left));
-      std::string id = "local_var";
-      if (new_array)
-        this_array.quantifier_binding = symbol_exprt(id, to_index_expr(expr).index().type());
+
+      //if (new_array)
     }
   }
 
@@ -258,7 +259,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
         debug() << i << " ";
       debug() << eom;
     }
-    if (all_sets_size_one)
+    if (all_sets_size_one || sets_of_matching_indices.size() == 0)
       return;
 
     // Now check which of the normalised array indices are the same for
@@ -334,8 +335,8 @@ void array_syntht::add_quantifiers_back(exprt &expr)
 
         // uniformise quantifier bindings
         std::string id = "local_var" + integer2string(local_var_counter);
-        auto binding = symbol_exprt(id,
-                                    array_index_locations[this_matching_set[0]].array_indexes[0].quantifier_binding.type());
+        auto binding = symbol_exprt(id, integer_typet());
+        // array_index_locations[this_matching_set[0]].array_indexes[0].quantifier_binding.type());
         local_var_counter++;
         // now replace with quantifier
         exprt &where = operands[this_matching_set[0]];
