@@ -75,6 +75,8 @@ public:
     sygus_interfacet sygus_interface;
     solutiont solution;
     std::set<irep_idt> declared_variables;
+    std::set<exprt> symbols_to_bound;
+    std::set<constant_exprt> counterexamples;
     decision_proceduret::resultt array_synth_loop(sygus_parsert &parser, problemt &problem);
 
 private:
@@ -88,8 +90,8 @@ private:
     solutiont build_solution(const solutiont &solution);
 
     mp_integer max_array_index;
-    void unbound_arrays_in_solution(solutiont &solution);
-    void add_quantifiers_back(exprt &expr);
+    bool unbound_arrays_in_solution(solutiont &solution);
+    bool add_quantifiers_back(exprt &expr);
     void normalise_quantifier_index_adjustments(expr_array_index_locst &loc);
 
     std::vector<expr_array_index_locst> array_index_locations;
@@ -103,8 +105,10 @@ private:
     // bool single_local_var;
     std::size_t local_var_counter;
     // mp_integer max_index_modifier;
-    void add_implication(exprt &expr, std::set<exprt> &symbols);
+    void find_array_index_symbols(const exprt &expr, std::set<exprt> &result);
+    void find_vars_to_bound(const exprt &expr, std::set<exprt> &result);
     bool compare_expr(const exprt &expr1, const exprt &expr2);
+    void bound_array_indices(exprt &expr, std::size_t bound);
 };
 
 #endif /*CPROVER_FASTSYNTH_ARRAY_SYNTH_H_*/

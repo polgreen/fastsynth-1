@@ -42,10 +42,15 @@ std::string clean_id(const irep_idt &id)
       dest.rfind("#") == c_pos)
     dest.erase(c_pos, std::string::npos);
 
-  std::string::size_type c_pos2 = dest.find("synth_fun::");
+  std::string::size_type c_pos2 = dest.find("synth_fun::"); // 11 chars
   if (c_pos2 != std::string::npos &&
       dest.rfind("synth_fun::") == c_pos2)
     dest.erase(0, c_pos2 + 11);
+
+  c_pos2 = dest.find("synth::"); //7 chars
+  if (c_pos2 != std::string::npos &&
+      dest.rfind("synth::") == c_pos2)
+    dest.erase(0, c_pos2 + 7);
 
   return dest;
 }
@@ -72,7 +77,7 @@ void clean_symbols(exprt &expr)
 
 std::string expr2sygus(const exprt &expr)
 {
-  return expr2sygus(expr, false);
+  return expr2sygus(expr, true);
 }
 
 std::string expr2sygus(const exprt &expr, bool use_integers)
@@ -336,35 +341,48 @@ std::string sygus_interfacet::build_grammar(
 
   booldecls += "(B Bool ((and B B) (or B B) (not B) (and C C) (or C C)))\n";
   booldecls += "(C Bool ((= I I) (<= I I) (>= I I)\n";
+  booldecls += extra_grammar_bools;
 
-  integers += "(I Int (0 1 ";
+  integers += "(I Int (0 1 (- 1) ";
   for (const auto &l : literals)
     integers += l + " ";
+  integers += "(ite B I I)\n";
   integers += "(+ I I)\n";
-  integers += "(- I I)\n";
+  integers += "(- I)\n";
 
   //integers += "(* I I)\n";
 
   int count = 0;
+  std::vector<std::size_t> integer_params;
+  std::vector<std::size_t> array_params;
   for (const auto &d : to_mathematical_function_type(function_symbol.type()).domain())
   {
     if (d.id() == ID_integer)
+    {
       integers += "parameter" + integer2string(count) + " \n";
+      integer_params.push_back(count);
+    }
     else if (d.id() == ID_bool)
       booldecls += "parameter" + integer2string(count) + " \n";
     else if (d.id() == ID_array)
     {
       for (int i = 0; i < bound; i++)
         integers += "(select parameter" + integer2string(count) + " " + integer2string(i) + ")\n";
+      array_params.push_back(count);
     }
     count++;
   }
+
+  for (const auto &array : array_params)
+    for (const auto &idx : integer_params)
+      integers += "(select parameter" + integer2string(array) + " parameter" + integer2string(idx) + ")\n";
+
   booldecls += "))\n";
   integers += "))\n";
   if (to_mathematical_function_type(function_symbol.type()).codomain().id() == ID_bool)
-    return "((B Bool) (C Bool) (I Int))\n(" + booldecls + integers + ")";
+    return "\n((B Bool) (C Bool) (I Int))\n(" + booldecls + integers + ")";
   else
-    return "((I Int) (B Bool) (C Bool))\n(" + integers + booldecls + ")";
+    return "\n((I Int) (B Bool) (C Bool))\n(" + integers + booldecls + ")";
 }
 
 void sygus_interfacet::build_query(problemt &problem, int bound)
@@ -445,7 +463,7 @@ decision_proceduret::resultt sygus_interfacet::fudge()
 decision_proceduret::resultt sygus_interfacet::doit(
     problemt &problem, bool use_ints, bool use_gramm, const int bound, const int timeout)
 {
-  std::cout << "Use integers " << use_ints << std::endl;
+  // std::cout << "Use integers " << use_ints << std::endl;
   use_integers = use_ints;
   use_grammar = use_gramm;
   build_query(problem, bound);
@@ -475,9 +493,11 @@ decision_proceduret::resultt sygus_interfacet::solve(const int timeout)
   std::string stdin_filename;
 
   if (timeout == 0)
-    argv = {"cvc4", "--lang", "sygus2", temp_file_problem()};
+    argv = {"cvc4", "--lang", "sygus2", "--sygus-active-gen=enum", "--nl-ext-tplanes", temp_file_problem()};
   else
-    argv = {"timeout", integer2string(timeout), "cvc4", "--lang", "sygus2", temp_file_problem()};
+    argv = {"timeout", integer2string(timeout), "cvc4", "--lang", "sygus2",
+            "--sygus-active-gen=enum", "--nl-ext-tplanes",
+            temp_file_problem()};
 
   int res =
       run(argv[0], argv, stdin_filename, temp_file_stdout(), temp_file_stderr());
@@ -497,6 +517,8 @@ void sygus_interfacet::clear()
   constraints.clear();
   declare_vars.clear();
   synth_fun.clear();
+  extra_grammar_bools.clear();
+  extra_grammar_ints.clear();
 }
 decision_proceduret::resultt sygus_interfacet::read_result(std::istream &in)
 {
@@ -526,7 +548,7 @@ decision_proceduret::resultt sygus_interfacet::read_result(std::istream &in)
   }
   if (result_parser.id_map.size() == 0)
   {
-    std::cout << "error: id_map is 0\n";
+    std::cout << "Inner synthesis phase failed or timed-out. ";
     return decision_proceduret::resultt::D_ERROR;
   }
 
@@ -543,4 +565,54 @@ decision_proceduret::resultt sygus_interfacet::read_result(std::istream &in)
     }
   }
   return decision_proceduret::resultt::D_SATISFIABLE;
+}
+
+void sygus_interfacet::get_solution_grammar_string(const exprt &expr)
+{
+
+  std::string result;
+
+  if (expr.id() == ID_forall)
+  {
+    result += expr2sygus(expr);
+
+    result += "(forall (";
+    for (const auto &e : to_forall_expr(expr).variables())
+      result += "(" + expr2sygus(e) + " " + type2sygus(e.type()) + ")";
+    result += ") (=> (and";
+
+    for (const auto &e : to_forall_expr(expr).variables())
+      result += "(>= 0" + expr2sygus(e) + ") (< " + expr2sygus(e) + " B )";
+    result += ")" + expr2sygus(to_forall_expr(expr).where()) + "))";
+
+    // std::cout << "extra bools: " << extra_grammar_bools << std::endl;
+    extra_grammar_bools += result;
+  }
+  else if (expr.id() == ID_exists)
+  {
+    extra_grammar_bools += expr2sygus(expr);
+    // std::cout << "extra bools: " << extra_grammar_bools << std::endl;
+  }
+  else if (expr.id() == ID_lt || expr.id() == ID_le ||
+           expr.id() == ID_gt || expr.id() == ID_equal || expr.id() == ID_ge)
+  {
+    extra_grammar_bools += expr2sygus(expr) + "\n ";
+    // std::cout << "extra bools: " << extra_grammar_bools << std::endl;
+  }
+  else
+  {
+    for (const auto &op : expr.operands())
+      get_solution_grammar_string(op);
+  }
+}
+
+void sygus_interfacet::add_prev_solution_to_grammar(const solutiont &prev_solution)
+{
+  std::cout << "adding prevoius solution to grammar \n";
+
+  for (const auto &f : prev_solution.functions)
+  {
+    std::cout << "adding prevoius solution to grammar \n";
+    get_solution_grammar_string(f.second);
+  }
 }

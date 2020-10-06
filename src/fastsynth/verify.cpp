@@ -24,8 +24,8 @@ void verifyt::output(
 decision_proceduret::resultt verifyt::operator()(
     const solutiont &solution)
 {
-  status() << green;
-  output(solution.functions, status());
+  status() << green << "Candidate: ";
+  output(solution.functions, debug());
   status() << reset << eom;
 
   // check that the parameters in the given solution

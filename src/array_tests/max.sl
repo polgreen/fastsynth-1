@@ -12,9 +12,11 @@
   (and (= max (select a 0))(= i 0)))
 
 
-(define-fun trans-fn ((a (Array Int Int))(max Int)(i Int) (a! (Array Int Int))(max! Int)(i! Int)) Bool  
+(define-fun trans-fn ((a (Array Int Int))(max Int)(i Int)(max! Int)(i! Int)) Bool  
+   (ite (< i 100)
    (and (= i! (+ i 1))
-   (=> (> (select a i) max) (= max! (select a i)))))
+   (=> (> (select a i) max) (= max! (select a i))))
+   (and (= max! max) (= i! i))))
 
 
 (define-fun post-fn ((a (Array Int Int))(max Int)(i Int)) Bool 
@@ -22,7 +24,7 @@
 
 
 (constraint (=> (init-fn a max i) (inv-fn a max i)))
-(constraint (=> (and (inv-fn a max i) (trans-fn a  max i a! max! i!)) (inv-fn a! max! i!)))
+(constraint (=> (and (inv-fn a max i) (trans-fn a  max i max! i!)) (inv-fn a max! i!)))
 (constraint (=> (inv-fn a max i) (post-fn a max i)))
 (check-synth)
 

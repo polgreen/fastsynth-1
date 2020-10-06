@@ -1,4 +1,4 @@
-; not solvable
+; gets solution without index>=0
 (set-logic ALL)
 (synth-fun inv-fn ((c Int) (x (Array Int Int))) Bool)
 (declare-var x (Array Int Int))
@@ -12,8 +12,9 @@
 
 (define-fun trans-fn ((c Int) (x (Array Int Int)) (c! Int) (x! (Array Int Int))) Bool 
 	(and (= c! (+ c 1))
-	(and (= (select x! c) 0) 
-	(forall ((index Int)) (=> (not(= index c)) (= (select x! index)(select x index)))))))
+	(= x! (store x c 0))))	
+
+	;(forall ((index Int)) (=> (not(= index c)) (= (select x! index)(select x index)))))))
 
 
 (define-fun post-fn ((c Int) (x (Array Int Int)) ) Bool 

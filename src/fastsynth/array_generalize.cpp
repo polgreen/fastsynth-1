@@ -28,7 +28,7 @@ std::vector<bool> constants_match(const array_index_locst &a, const array_index_
     return result;
   for (unsigned int i = 0; i < a.constant_adjustments.size(); i++)
   {
-    std::cout << "constant adjustments " << a.constant_adjustments[i] << " " << b.constant_adjustments[i] << std::endl;
+    // std::cout << "constant adjustments " << a.constant_adjustments[i] << " " << b.constant_adjustments[i] << std::endl;
     result.push_back(a.constant_adjustments[i] == b.constant_adjustments[i]);
   }
 
@@ -156,7 +156,7 @@ bool array_syntht::find_array_indices(const exprt &expr,
       {
         if (name == this_expr.array_indexes[i].name)
         {
-          status() << "new array " << id2string(name) << eom;
+          debug() << "new array " << id2string(name) << eom;
           new_array = false;
           this_array_idx = i;
         }
@@ -176,7 +176,7 @@ bool array_syntht::find_array_indices(const exprt &expr,
       INVARIANT(!to_integer(
                     to_constant_expr(to_index_expr(expr).index()), value),
                 "unable to get index value");
-      status() << "index value: " << value << " at " << depth << ", " << distance_from_left << eom;
+      debug() << "index value: " << value << " at " << depth << ", " << distance_from_left << eom;
       this_array.original_index_values.push_back(value);
 
       this_array.locations.push_back(std::pair<int, int>(depth, distance_from_left));
@@ -199,7 +199,7 @@ bool array_syntht::find_array_indices(const exprt &expr,
   return result;
 }
 
-void array_syntht::add_quantifiers_back(exprt &expr)
+bool array_syntht::add_quantifiers_back(exprt &expr)
 {
   for (auto &o : expr.operands())
     add_quantifiers_back(o);
@@ -222,7 +222,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
       normalise_quantifier_index_adjustments(array_index_locations[i]);
     }
     if (!found_array)
-      return;
+      return false;
 
     // look for sets of operands which index the same number of arrays.
     // and are the same expression except for the index values
@@ -260,7 +260,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
       debug() << eom;
     }
     if (all_sets_size_one || sets_of_matching_indices.size() == 0)
-      return;
+      return false;
 
     // Now check which of the normalised array indices are the same for
     // each set. For each set, we first check which of the array indices in array_indexes
@@ -374,6 +374,7 @@ void array_syntht::add_quantifiers_back(exprt &expr)
       debug() << "RESULT:: " << expr2sygus(expr, true) << eom;
     }
   }
+  return true;
 }
 
 // return true if expressions are the same except with different
@@ -481,7 +482,7 @@ void array_syntht::replace_array_indices_with_local_vars(
   }
 }
 
-void array_syntht::unbound_arrays_in_solution(solutiont &solution)
+bool array_syntht::unbound_arrays_in_solution(solutiont &solution)
 {
   for (auto &e : solution.functions)
   {
@@ -491,9 +492,13 @@ void array_syntht::unbound_arrays_in_solution(solutiont &solution)
             << expr2sygus(e.second, true) << eom;
   }
 
+  bool added_quantifiers = false;
   for (auto &e : solution.functions)
-    add_quantifiers_back(e.second);
+    if (add_quantifiers_back(e.second))
+      added_quantifiers = true;
 
   for (auto &e : solution.functions)
     debug() << "after adding quant back; " << expr2sygus(e.second, true) << eom;
+
+  return added_quantifiers;
 }

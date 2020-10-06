@@ -1,4 +1,4 @@
 for f in *.sl; do
 echo $f
-timeout 60 time fastsynth --arrays $f 
+timeout 300 time fastsynth --arrays $f > $f.output
 done

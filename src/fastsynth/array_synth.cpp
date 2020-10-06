@@ -4,7 +4,7 @@
 #include <util/arith_tools.h>
 #include <util/symbol_table.h>
 #include <util/string2int.h>
-#define MAX_ARRAY_SIZE 11
+#define MAX_ARRAY_SIZE 5
 #include <iostream>
 #include <cmath>
 #include "bitvector2integer.h"
@@ -20,7 +20,6 @@ void array_syntht::initialise_variable_set(const problemt &problem)
         id.second.definition.is_nil())
     {
       declared_variables.insert(id.first);
-      status() << " Declared variable " << id2string(id.first) << eom;
     }
   }
 }
@@ -40,13 +39,15 @@ void array_syntht::process_counterexample(problemt &problem,
   {
     if (ass.second.id() == ID_with)
     {
-      status() << "Array counterexample assignment was an ID with" << eom;
-      status() << "where " << to_with_expr(ass.second).where().pretty() << eom;
+      debug() << "Array counterexample assignment was an ID with" << eom;
+      debug() << "where " << to_with_expr(ass.second).where().pretty() << eom;
       exprt where = to_with_expr(ass.second).where();
       if (where.id() == ID_constant)
       {
         mp_integer cex_value;
         to_integer(to_constant_expr(where), cex_value);
+        counterexamples.insert(to_constant_expr(where));
+
         // assume this must be new? if not, something has gone wrong
         bool is_new = true;
 
@@ -95,46 +96,47 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
   verify.use_smt = true;
 
   array_size = 2;
-  problem = local_problem;
-  bound_arrays(problem, array_size);
-  sygus_interface.clear();
-  status() << "Array size bounded to width " << array_size << eom;
-
+  bool use_grammar = false;
+  bool use_integers = true;
+  bool solution_has_quants = false;
   while (indices.size() < MAX_ARRAY_SIZE)
   {
+    sygus_interface.clear();
+    problem = local_problem;
+    bound_arrays(problem, array_size);
+    status() << "Array size bounded to width " << array_size << eom;
     decision_proceduret::resultt result;
-#ifdef FUDGE
-    result = sygus_interface.fudge();
-#else
-    // try without grammar and with timeout
-    result = sygus_interface.doit(problem, true, false, array_size, 10);
-    // if failed without grammar, try with grammar
-    if (result == decision_proceduret::resultt::D_ERROR)
-    {
-      sygus_interface.clear();
-      result = sygus_interface.doit(problem, true, true, array_size);
-    }
 
-#endif
+    // alternates betrween "with grammar" and "without grammar". The timeout for "without grammar" is shorter
+    result = sygus_interface.doit(
+        problem, use_integers, use_grammar, array_size, use_grammar ? 120 : 2);
 
     switch (result)
     {
     case decision_proceduret::resultt::D_ERROR:
-      status() << "Warning, error from sygus interface \n";
+      if (!use_grammar)
+        use_grammar = true;
+      else
+      {
+        use_grammar = false;
+        array_size++;
+      }
+      break;
     case decision_proceduret::resultt::D_UNSATISFIABLE:
-      status() << " no solution with array bound " << array_size << eom;
-      array_size++;
+      debug() << " no solution with array bound " << array_size << eom;
+      if (!use_grammar)
+        use_grammar = true;
+      else
+      {
+        use_grammar = false;
+        array_size++;
+      }
       break;
     case decision_proceduret::resultt::D_SATISFIABLE:
-      status() << "Verifying solution from CVC4\n"
-               << eom;
-      for (const auto &f : sygus_interface.solution.functions)
-      {
-        status() << "SOLUTION" << expr2sygus(f.second, false) << eom;
-      }
-
+      debug() << "Verifying solution from CVC4\n"
+              << eom;
       // unbound the solution and put quantifiers back
-      unbound_arrays_in_solution(sygus_interface.solution);
+      solution_has_quants = unbound_arrays_in_solution(sygus_interface.solution);
       // add solution to the rest of the solution we have obtained so far
 
       // verify
@@ -142,19 +144,39 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
       {
       case decision_proceduret::resultt::D_SATISFIABLE:
       {
-        status() << "SAT, got counterexample.\n"
+        status() << "verifying candidate failed, got counterexample."
                  << eom;
         counterexamplet cex = verify.get_counterexample();
         // update set of indices for synthesis, based on counterexample
-        process_counterexample(problem, cex);
-        // array_size++;
+        if (!use_grammar)
+          use_grammar = true;
+        else
+        {
+          use_grammar = false;
+          // process_counterexample(problem, cex);
+          array_size++;
+        }
 
-        // clear last sygus solution
+        status() << "Trying full scale synthesis with soln."
+                 << eom;
+        solution = sygus_interface.solution;
+        sygus_interface.clear();
+        sygus_interface.add_prev_solution_to_grammar(solution);
+        result = sygus_interface.doit(
+            local_problem, use_integers, true, array_size, 120);
+        if (result == decision_proceduret::resultt::D_SATISFIABLE)
+        {
+          status() << "UNSAT, got solution with array size " << array_size << "\n"
+                   << eom;
+          solution = sygus_interface.solution;
+          return decision_proceduret::resultt::D_SATISFIABLE;
+        }
+
         sygus_interface.solution.functions.clear();
       }
       break;
       case decision_proceduret::resultt::D_UNSATISFIABLE:
-        status() << "UNSAT, got solution with array size " << indices.size() << " \n " << eom;
+        status() << "UNSAT, got solution with array size " << array_size << " \n " << eom;
         solution = sygus_interface.solution;
         return decision_proceduret::resultt::D_SATISFIABLE;
       case decision_proceduret::resultt::D_ERROR:

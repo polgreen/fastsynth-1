@@ -4,10 +4,8 @@
 (declare-var x (Array Int Int))
 (declare-var c Int)
 
-
-
 (define-fun init-fn ((x (Array Int Int)) (c Int)) Bool 
-	(= (select x c) 10))
+	(and (>= c 0)(= (select x c) 10)))
 
 (define-fun post-fn ((x (Array Int Int))(c Int)) Bool 
 	(exists ((index Int)) (=> (>= index 0) (and (= (select x index) 10)

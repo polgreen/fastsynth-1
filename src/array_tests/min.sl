@@ -12,15 +12,16 @@
   (and (= min 0)(= i 0)))
 
 
-(define-fun trans-fn ((a (Array Int Int))(min Int)(i Int) (a! (Array Int Int))(min! Int)(i! Int)) Bool 
-   (or (> i 100) 
+(define-fun trans-fn ((a (Array Int Int))(min Int)(i Int)(min! Int)(i! Int)) Bool 
+   (ite (< i 100) 
    (and (= i! (+ i 1))
-   (=> (< (select a i) min) (= min! (select a i))))))
+   (=> (< (select a i) min) (= min! (select a i))))
+   (and (= i! i)(= i! i ))))
 
 
 
 (define-fun post-fn ((a (Array Int Int))(min Int)(i Int)) Bool 
-  (forall ((index Int)) (=> (< index 100) (> (select a index) min))))
+  (forall ((index Int)) (=> (< index i) (> (select a index) min))))
 
 
 (constraint (=> (init-fn a min i) (inv-fn a min i)))

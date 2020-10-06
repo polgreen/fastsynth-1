@@ -11,9 +11,8 @@
 (and (= c 0) (= (select x 0) 0)))
 
 (define-fun trans-fn ((c Int) (x (Array Int Int)) (c! Int) (x! (Array Int Int))) Bool 
-	(and (= c! (+ c 1))
-	(and (= (select x! c) 0) 
-	(forall ((index Int)) (=> (not(= index c)) (= (select x! index)(select x index)))))))
+	(and (= c! (+ c 1)) (= x! (store x c 0)) 
+	(forall ((index Int)) (=> (not(= index c)) (= (select x! index)(select x index))))))
 
 
 (define-fun post-fn ((c Int) (x (Array Int Int)) ) Bool 

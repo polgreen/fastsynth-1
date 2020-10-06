@@ -1,5 +1,5 @@
 ; solved with grammar
-; aargh now has bug in generalisation. Needs to compare all combinations of predicates in the conjunctions. 
+
 (set-logic ALL)
 (synth-fun inv-fn ((x (Array Int Int)) (y (Array Int Int))(c1 Int) ) Bool)
 (declare-var x (Array Int Int))

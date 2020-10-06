@@ -26,11 +26,15 @@ public:
     void print_problem(problemt &problem);
     decision_proceduret::resultt fudge();
     decision_proceduret::resultt doit(problemt &problem, bool use_ints, bool use_grammar, const int bound, const int timeout = 0);
+    std::string extra_grammar_bools;
+    std::string extra_grammar_ints;
     std::string declare_vars;
     std::string synth_fun;
     std::string constraints;
     std::string logic;
     bool use_grammar;
+    void add_prev_solution_to_grammar(const solutiont &prev_solution);
+    void get_solution_grammar_string(const exprt &expr);
 
     decision_proceduret::resultt solve(const int timeout);
     void clear();

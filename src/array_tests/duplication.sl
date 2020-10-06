@@ -1,4 +1,4 @@
-;non linear arithmetic. unknown
+;non linear arithmetic. cvc4 refuses to enumerate once you include multiplies
 (set-logic ALL)
 (synth-fun inv-fn ((x (Array Int Int))) Bool)
 (declare-var x (Array Int Int))
