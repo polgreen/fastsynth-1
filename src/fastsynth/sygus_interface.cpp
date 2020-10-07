@@ -397,6 +397,21 @@ void sygus_interfacet::build_query(problemt &problem, int bound)
       exprt var = symbol_exprt(id.first, id.second.type);
       declare_vars += "(declare-var " + expr2sygus(var, use_integers) + " " + type2sygus(var.type()) + ")\n";
     }
+    else if (!id.second.definition.is_nil() &&
+             id.second.type.id() == ID_mathematical_function && output_helper_functions)
+    {
+      mathematical_function_typet func = to_mathematical_function_type(id.second.type);
+      if (func.domain().size() == id.second.parameters.size())
+      {
+        declare_vars += "(define-fun " + clean_id(id.first) + " (";
+        for (int i = 0; i < id.second.parameters.size(); i++)
+        {
+          declare_vars += "(" + clean_id(id.second.parameters[i]) + " " + type2sygus(func.domain()[i]) + ")";
+        }
+        declare_vars += ") " + type2sygus(func.codomain()) + "\n";
+        declare_vars += expr2sygus(id.second.definition) + ")\n";
+      }
+    }
   }
   std::vector<std::string> literal_strings;
   for (const auto &f : problem.literals)
@@ -446,6 +461,7 @@ void sygus_interfacet::print_problem(problemt &problem)
 {
   use_integers = true;
   use_grammar = false;
+  output_helper_functions = false;
   build_query(problem, 2);
   std::string query = logic + declare_vars + synth_fun + constraints + "(check-synth)\n";
   std::cout

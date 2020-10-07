@@ -54,8 +54,8 @@ inline bool operator==(const array_index_locst &a, const array_index_locst &b)
 {
     if (a.name != b.name)
         return false;
-    // if (a.locations != b.locations)
-    //  return false;
+    if (a.locations != b.locations)
+        return false;
     if (a.index_adjustments != b.index_adjustments)
         return false;
     else

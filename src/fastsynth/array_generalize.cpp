@@ -210,18 +210,18 @@ bool array_syntht::add_quantifiers_back(exprt &expr)
   // if this is not a conjunction or disjunction it can't be replaced with a forall/exists.
   if (expr.id() == ID_and || expr.id() == ID_or)
   {
-    debug() << "ATTEMPTING TO ADD quant back for " << expr2sygus(expr, true) << eom;
+    debug() << "Can we add a quantifier instead of: " << expr2sygus(expr, true) << eom;
 
     auto &operands = expr.operands();
     assert(operands.size() != 0);
-    bool found_array = false;
+    std::size_t found_array = 0;
     for (unsigned int i = 0; i < operands.size(); i++)
     {
       if (find_array_indices(operands[i], 0, 0, true))
-        found_array = true;
+        found_array++;
       normalise_quantifier_index_adjustments(array_index_locations[i]);
     }
-    if (!found_array)
+    if (found_array <= 1)
       return false;
 
     // look for sets of operands which index the same number of arrays.
@@ -235,9 +235,10 @@ bool array_syntht::add_quantifiers_back(exprt &expr)
     //    bool matching_constant = true;
     for (unsigned int i = 0; i < operands.size() - 1; i++)
     {
-      if (array_index_locations[i].array_indexes.size() == array_index_locations[i + 1].array_indexes.size() &&
+      if (array_index_locations[i].array_indexes == array_index_locations[i + 1].array_indexes &&
           compare_expr(operands[i], operands[i + 1]))
       {
+        debug() << "\nMatching!" << eom;
         matching_indices.push_back(i + 1);
       }
       else
@@ -381,6 +382,7 @@ bool array_syntht::add_quantifiers_back(exprt &expr)
 // array indices
 bool array_syntht::compare_expr(const exprt &expr1, const exprt &expr2)
 {
+  debug() << "Comparing expr " << expr2sygus(expr1) << " and " << expr2sygus(expr2) << eom;
   const auto &operands1 = expr1.operands();
   const auto &operands2 = expr1.operands();
   if (expr1 == expr2)

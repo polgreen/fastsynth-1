@@ -8,7 +8,7 @@
 (declare-var i! Int)
 
 (define-fun init-fn ((r Int) (i Int)) Bool
-  (and (= r 0)(= i 0)))
+  (and (= r 0)(= i 0)(> length 0)(= (select a 0)(select b 0))))
 
 (define-fun trans-fn ((a (Array Int Int))(b (Array Int Int))(length Int)(r Int)(i Int)(r! Int)(i! Int)) Bool
   (ite (< i length)
@@ -18,7 +18,7 @@
   )
 
 (define-fun post-fn ((a (Array Int Int))(b (Array Int Int))(length Int)(r Int)(i Int)) Bool
-  (forall ((index Int))(=> (and (<= 0 index)(<= index i)(not (= r 1)))(= (select a index)(select b index)))))
+  (forall ((index Int))(=> (and (<= 0 index)(< index i)(not (= r 1)))(= (select a index)(select b index)))))
 
 (synth-fun inv-fn ((a (Array Int Int))(b (Array Int Int))(length Int)(r Int)(i Int)) Bool )
 
