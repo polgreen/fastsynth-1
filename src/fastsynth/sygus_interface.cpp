@@ -328,25 +328,33 @@ std::string remove_synth_prefix(std::string in)
   return in;
 }
 
-std::string sygus_interfacet::build_grammar(
+std::string
+sygus_interfacet::build_grammar(
     const symbol_exprt &function_symbol, const int &bound, const std::vector<std::string> &literals)
 {
   std::string booldecls = "";
   std::string integers = "";
   if (!use_integers || !use_grammar)
   {
-    // std::cout << "do not use grammar " << std::endl;
     return booldecls;
   }
+  if (extra_grammar_bools.empty())
+  {
+    booldecls += "(B Bool ((and B B) (or B B) (not B) (and C C) (or C C)))\n";
+    booldecls += "(C Bool ((= I I) (<= I I) (>= I I)\n";
+  }
+  else
+  {
+    booldecls += "(B Bool ((and B B) (or B B)(>= I I)(= I I)(< I I)\n";
+  }
 
-  booldecls += "(B Bool ((and B B) (or B B) (not B) (and C C) (or C C)))\n";
-  booldecls += "(C Bool ((= I I) (<= I I) (>= I I)\n";
   booldecls += extra_grammar_bools;
 
-  integers += "(I Int (0 1 (- 1) ";
+  integers += "\n(I Int (0 1 (- 1) ";
   for (const auto &l : literals)
     integers += l + " ";
-  integers += "(ite B I I)\n";
+  if (extra_grammar_bools.empty())
+    integers += "(ite B I I)\n";
   integers += "(+ I I)\n";
   integers += "(- I)\n";
 
@@ -364,7 +372,7 @@ std::string sygus_interfacet::build_grammar(
     }
     else if (d.id() == ID_bool)
       booldecls += "parameter" + integer2string(count) + " \n";
-    else if (d.id() == ID_array)
+    else if (d.id() == ID_array && extra_grammar_bools.empty())
     {
       for (int i = 0; i < bound; i++)
         integers += "(select parameter" + integer2string(count) + " " + integer2string(i) + ")\n";
@@ -373,16 +381,19 @@ std::string sygus_interfacet::build_grammar(
     count++;
   }
 
-  for (const auto &array : array_params)
-    for (const auto &idx : integer_params)
-      integers += "(select parameter" + integer2string(array) + " parameter" + integer2string(idx) + ")\n";
+  // for (const auto &array : array_params)
+  //   for (const auto &idx : integer_params)
+  //     integers += "(select parameter" + integer2string(array) + " parameter" + integer2string(idx) + ")\n";
 
   booldecls += "))\n";
   integers += "))\n";
+  std::string terminals = (extra_grammar_bools.empty()) ? "\n((B Bool) (C Bool) (I Int))\n(" : "\n((B Bool)(I Int))\n(";
   if (to_mathematical_function_type(function_symbol.type()).codomain().id() == ID_bool)
-    return "\n((B Bool) (C Bool) (I Int))\n(" + booldecls + integers + ")";
+
+    return terminals + booldecls + integers + ")";
+
   else
-    return "\n((I Int) (B Bool) (C Bool))\n(" + integers + booldecls + ")";
+    return terminals + integers + booldecls + ")";
 }
 
 void sygus_interfacet::build_query(problemt &problem, int bound)
@@ -583,14 +594,47 @@ decision_proceduret::resultt sygus_interfacet::read_result(std::istream &in)
   return decision_proceduret::resultt::D_SATISFIABLE;
 }
 
+int contains_array(const exprt &expr)
+{
+  int count = 0;
+  if (expr.id() == ID_index)
+  {
+    if (to_index_expr(expr).index().id() == ID_constant)
+      count++;
+  }
+
+  for (const auto &op : expr.operands())
+    if (contains_array(op))
+      count++;
+  return count;
+}
+
+// void replace_array_indices(exprt &expr, int &count, const int &i)
+// {
+//   if (expr.id() == ID_index)
+//   {
+//     if (to_index_expr(expr).index().id() == ID_constant)
+//     {
+//       count++;
+//       if (count == i)
+//       {
+//         index_exprt new_expr(to_index_expr(expr).array(), symbol_exprt("index", integer_typet()));
+//         expr = new_expr;
+//         return;
+//       }
+//     }
+//   }
+//   for (const auto &op : expr.operands())
+//     replace_array_indices(op, count, i);
+// }
+
 void sygus_interfacet::get_solution_grammar_string(const exprt &expr)
 {
-
   std::string result;
 
   if (expr.id() == ID_forall)
   {
-    result += expr2sygus(expr);
+    result += expr2sygus(expr) + "\n";
 
     result += "(forall (";
     for (const auto &e : to_forall_expr(expr).variables())
@@ -598,24 +642,38 @@ void sygus_interfacet::get_solution_grammar_string(const exprt &expr)
     result += ") (=> (and";
 
     for (const auto &e : to_forall_expr(expr).variables())
-      result += "(>= 0" + expr2sygus(e) + ") (< " + expr2sygus(e) + " B )";
-    result += ")" + expr2sygus(to_forall_expr(expr).where()) + "))";
+      result += "(<= I " + expr2sygus(e) + ") (< " + expr2sygus(e) + " I )";
+    result += ")" + expr2sygus(to_forall_expr(expr).where()) + "))\n";
 
     // std::cout << "extra bools: " << extra_grammar_bools << std::endl;
     extra_grammar_bools += result;
   }
   else if (expr.id() == ID_exists)
   {
-    extra_grammar_bools += expr2sygus(expr);
+    extra_grammar_bools += expr2sygus(expr) + "\n";
+
+    result += "(exists (";
+    for (const auto &e : to_forall_expr(expr).variables())
+      result += "(" + expr2sygus(e) + " " + type2sygus(e.type()) + ")";
+    result += ") (and";
+
+    for (const auto &e : to_forall_expr(expr).variables())
+      result += "(<= I " + expr2sygus(e) + ") (< " + expr2sygus(e) + " I )";
+    result += expr2sygus(to_forall_expr(expr).where()) + ")))\n";
+
     // std::cout << "extra bools: " << extra_grammar_bools << std::endl;
   }
   else if (expr.id() == ID_lt || expr.id() == ID_le ||
            expr.id() == ID_gt || expr.id() == ID_equal || expr.id() == ID_ge)
   {
+    // int lhs_idx_count = contains_array(expr.op0());
+    // int rhs_idx_count = contains_array(expr.op1());
+    // if (lhs_idx_count && rhs_idx_count)
+    // {
+    // }
     extra_grammar_bools += expr2sygus(expr) + "\n ";
     // std::cout << "extra bools: " << extra_grammar_bools << std::endl;
   }
-  else
   {
     for (const auto &op : expr.operands())
       get_solution_grammar_string(op);
