@@ -34,8 +34,8 @@ public:
     std::string logic;
     bool output_helper_functions;
     bool use_grammar;
-    void add_prev_solution_to_grammar(const solutiont &prev_solution);
-    void get_solution_grammar_string(const exprt &expr);
+    void add_prev_solution_to_grammar(solutiont &prev_solution);
+    void get_solution_grammar_string(exprt &expr);
 
     decision_proceduret::resultt solve(const int timeout);
     void clear();

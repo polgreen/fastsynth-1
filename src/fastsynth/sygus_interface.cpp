@@ -4,6 +4,7 @@
 #include <util/tempfile.h>
 #include <util/run.h>
 #include <fstream>
+#define DEBUG
 
 // TODO: add operators for non-bitvectors
 std::string type2sygus(const typet &type)
@@ -387,13 +388,19 @@ sygus_interfacet::build_grammar(
 
   booldecls += "))\n";
   integers += "))\n";
-  std::string terminals = (extra_grammar_bools.empty()) ? "\n((B Bool) (C Bool) (I Int))\n(" : "\n((B Bool)(I Int))\n(";
+  std::string terminals;
   if (to_mathematical_function_type(function_symbol.type()).codomain().id() == ID_bool)
+  {
+    terminals = (extra_grammar_bools.empty()) ? "\n((B Bool) (C Bool) (I Int))\n(" : "\n((B Bool)(I Int))\n(";
 
     return terminals + booldecls + integers + ")";
-
+  }
   else
+  {
+    std::string terminals = (extra_grammar_bools.empty()) ? "\n((I Int)(B Bool) (C Bool) )\n(" : "\n((I Int)(B Bool))\n(";
+
     return terminals + integers + booldecls + ")";
+  }
 }
 
 void sygus_interfacet::build_query(problemt &problem, int bound)
@@ -501,7 +508,7 @@ decision_proceduret::resultt sygus_interfacet::doit(
 decision_proceduret::resultt sygus_interfacet::solve(const int timeout)
 {
   std::string query = logic + declare_vars + synth_fun + constraints + "(check-synth)\n";
-#if DEBUG
+#ifdef DEBUG
   std::cout
       << "Solving query:\n"
       << query << std::endl;
@@ -612,7 +619,29 @@ bool contains_local_var(const exprt &expr)
   return false;
 }
 
-void sygus_interfacet::get_solution_grammar_string(const exprt &expr)
+void replace_index_with_local_var(index_exprt &expr, std::string id)
+{
+  index_exprt new_expr(expr.array(), symbol_exprt(id, integer_typet()));
+  expr = new_expr;
+}
+
+bool contains_array_index(exprt &expr)
+{
+  for (auto &op : expr.operands())
+    if (op.id() == ID_index)
+    {
+      replace_index_with_local_var(to_index_expr(op), "fresh_local_var");
+      return true;
+    }
+  return false;
+}
+
+std::string add_quantified_array_expr(const exprt &expr)
+{
+  return "(forall ((fresh_local_var Int)) (=> (and (<= I fresh_local_var)(< fresh_local_var I)) " + expr2sygus(expr) + "))\n";
+}
+
+void sygus_interfacet::get_solution_grammar_string(exprt &expr)
 {
   std::string result;
 
@@ -653,17 +682,20 @@ void sygus_interfacet::get_solution_grammar_string(const exprt &expr)
   {
     if (!contains_local_var(expr))
       extra_grammar_bools.insert(expr2sygus(expr) + "\n ");
+    if (contains_array_index(expr))
+      extra_grammar_bools.insert(add_quantified_array_expr(expr));
+
     // std::cout << "extra bools: " << extra_grammar_bools << std::endl;
   }
   {
-    for (const auto &op : expr.operands())
+    for (auto &op : expr.operands())
       get_solution_grammar_string(op);
   }
 }
 
-void sygus_interfacet::add_prev_solution_to_grammar(const solutiont &prev_solution)
+void sygus_interfacet::add_prev_solution_to_grammar(solutiont &prev_solution)
 {
-  for (const auto &f : prev_solution.functions)
+  for (auto &f : prev_solution.functions)
   {
     get_solution_grammar_string(f.second);
   }
