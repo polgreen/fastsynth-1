@@ -4,6 +4,7 @@
 #include <util/tempfile.h>
 #include <util/run.h>
 #include <fstream>
+#include <util/arith_tools.h>
 #define DEBUG
 
 // TODO: add operators for non-bitvectors
@@ -569,8 +570,9 @@ decision_proceduret::resultt sygus_interfacet::read_result(std::istream &in)
   {
     std::cout << "SyGuS solver says unknown \n"
               << std::endl;
-    return decision_proceduret::resultt::D_ERROR;
+    return decision_proceduret::resultt::D_UNSATISFIABLE;
   }
+
   sygus_parsert result_parser(in);
   try
   {
@@ -621,8 +623,20 @@ bool contains_local_var(const exprt &expr)
 
 void replace_index_with_local_var(index_exprt &expr, std::string id)
 {
-  index_exprt new_expr(expr.array(), symbol_exprt(id, integer_typet()));
-  expr = new_expr;
+  exprt new_index;
+  if (expr.index().id() == ID_constant)
+  {
+    mp_integer value;
+    to_integer(to_constant_expr(expr.index()), value);
+
+    if (value != 0)
+      new_index = binary_exprt(symbol_exprt(id, integer_typet()), ID_plus,
+                               symbol_exprt("I", integer_typet()));
+    else
+      new_index = symbol_exprt(id, integer_typet());
+    index_exprt new_expr(expr.array(), new_index);
+    expr = new_expr;
+  }
 }
 
 bool contains_array_index(exprt &expr)
@@ -644,9 +658,11 @@ std::string add_quantified_array_expr(const exprt &expr)
 void sygus_interfacet::get_solution_grammar_string(exprt &expr)
 {
   std::string result;
+  bool search_inside = true;
 
   if (expr.id() == ID_forall)
   {
+    search_inside = false;
     result += expr2sygus(expr) + "\n";
 
     result += "(forall (";
@@ -663,6 +679,7 @@ void sygus_interfacet::get_solution_grammar_string(exprt &expr)
   }
   else if (expr.id() == ID_exists)
   {
+    search_inside = false;
     result += expr2sygus(expr) + "\n";
 
     result += "(exists (";
@@ -672,7 +689,7 @@ void sygus_interfacet::get_solution_grammar_string(exprt &expr)
 
     for (const auto &e : to_exists_expr(expr).variables())
       result += "(<= I " + expr2sygus(e) + ") (< " + expr2sygus(e) + " I )";
-    result += expr2sygus(to_exists_expr(expr).where()) + ")))\n";
+    result += expr2sygus(to_exists_expr(expr).where()) + "))\n";
     extra_grammar_bools.insert(result);
 
     // std::cout << "extra bools: " << extra_grammar_bools << std::endl;
@@ -687,6 +704,7 @@ void sygus_interfacet::get_solution_grammar_string(exprt &expr)
 
     // std::cout << "extra bools: " << extra_grammar_bools << std::endl;
   }
+  if (search_inside)
   {
     for (auto &op : expr.operands())
       get_solution_grammar_string(op);

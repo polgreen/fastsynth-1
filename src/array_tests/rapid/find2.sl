@@ -20,6 +20,6 @@
 (synth-fun inv-fn ((a (Array Int Int))(alength Int)(ch Int) (i Int)(r Int)) Bool)
 
 (constraint (=> (init-fn i r alength)(inv-fn a alength ch i r)))
-(constraint (=> (and (inv-fn a alength ch i r)(trans-fn a alength ch i r i! r!))(inv-fn a alength ch i r) ))
+(constraint (=> (and (inv-fn a alength ch i r)(trans-fn a alength ch i r i! r!))(inv-fn a alength ch i! r!) ))
 (constraint (=> (inv-fn a alength ch i r) (post-fn a alength ch i r)))
 (check-synth)

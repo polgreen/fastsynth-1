@@ -10,7 +10,7 @@
 
 (define-fun trans-fn ((x (Array Int Int)) 
 	(x! (Array Int Int))) Bool 
-		(= x! (store x 0 0)))
+		(= x! (store (store x 1 0) 0 1)))
 
 (define-fun post-fn ((x (Array Int Int))) Bool 
 	(exists ((index Int)) (= (select x index) 1)))
