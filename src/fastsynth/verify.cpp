@@ -24,9 +24,9 @@ void verifyt::output(
 decision_proceduret::resultt verifyt::operator()(
     const solutiont &solution)
 {
-  status() << green << "Candidate: ";
+  debug() << green << "Candidate: ";
   output(solution.functions, debug());
-  status() << reset << eom;
+  debug() << reset << eom;
 
   // check that the parameters in the given solution
   // are consistent with the function signature

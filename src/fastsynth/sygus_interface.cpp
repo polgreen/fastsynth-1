@@ -347,8 +347,8 @@ sygus_interfacet::build_grammar(
   {
     booldecls += "(B Bool ((and B B) (or B B)(>= I I)(= I I)(< I I)\n";
   }
-
-  booldecls += extra_grammar_bools;
+  for (const auto &s : extra_grammar_bools)
+    booldecls += s;
 
   integers += "\n(I Int (0 1 (- 1) ";
   for (const auto &l : literals)
@@ -501,9 +501,11 @@ decision_proceduret::resultt sygus_interfacet::doit(
 decision_proceduret::resultt sygus_interfacet::solve(const int timeout)
 {
   std::string query = logic + declare_vars + synth_fun + constraints + "(check-synth)\n";
+#if DEBUG
   std::cout
       << "Solving query:\n"
       << query << std::endl;
+#endif
 
   temporary_filet
       temp_file_problem("sygus_problem_", ""),
@@ -594,39 +596,21 @@ decision_proceduret::resultt sygus_interfacet::read_result(std::istream &in)
   return decision_proceduret::resultt::D_SATISFIABLE;
 }
 
-int contains_array(const exprt &expr)
+bool contains_local_var(const exprt &expr)
 {
-  int count = 0;
-  if (expr.id() == ID_index)
-  {
-    if (to_index_expr(expr).index().id() == ID_constant)
-      count++;
-  }
-
   for (const auto &op : expr.operands())
-    if (contains_array(op))
-      count++;
-  return count;
+  {
+    if (contains_local_var(op))
+      return true;
+  }
+  if (expr.id() == ID_symbol)
+  {
+    std::string id = id2string(to_symbol_expr(expr).get_identifier());
+    if (id.find("local_var") != std::string::npos)
+      return true;
+  }
+  return false;
 }
-
-// void replace_array_indices(exprt &expr, int &count, const int &i)
-// {
-//   if (expr.id() == ID_index)
-//   {
-//     if (to_index_expr(expr).index().id() == ID_constant)
-//     {
-//       count++;
-//       if (count == i)
-//       {
-//         index_exprt new_expr(to_index_expr(expr).array(), symbol_exprt("index", integer_typet()));
-//         expr = new_expr;
-//         return;
-//       }
-//     }
-//   }
-//   for (const auto &op : expr.operands())
-//     replace_array_indices(op, count, i);
-// }
 
 void sygus_interfacet::get_solution_grammar_string(const exprt &expr)
 {
@@ -646,32 +630,29 @@ void sygus_interfacet::get_solution_grammar_string(const exprt &expr)
     result += ")" + expr2sygus(to_forall_expr(expr).where()) + "))\n";
 
     // std::cout << "extra bools: " << extra_grammar_bools << std::endl;
-    extra_grammar_bools += result;
+    extra_grammar_bools.insert(result);
   }
   else if (expr.id() == ID_exists)
   {
-    extra_grammar_bools += expr2sygus(expr) + "\n";
+    result += expr2sygus(expr) + "\n";
 
     result += "(exists (";
-    for (const auto &e : to_forall_expr(expr).variables())
+    for (const auto &e : to_exists_expr(expr).variables())
       result += "(" + expr2sygus(e) + " " + type2sygus(e.type()) + ")";
     result += ") (and";
 
-    for (const auto &e : to_forall_expr(expr).variables())
+    for (const auto &e : to_exists_expr(expr).variables())
       result += "(<= I " + expr2sygus(e) + ") (< " + expr2sygus(e) + " I )";
-    result += expr2sygus(to_forall_expr(expr).where()) + ")))\n";
+    result += expr2sygus(to_exists_expr(expr).where()) + ")))\n";
+    extra_grammar_bools.insert(result);
 
     // std::cout << "extra bools: " << extra_grammar_bools << std::endl;
   }
   else if (expr.id() == ID_lt || expr.id() == ID_le ||
            expr.id() == ID_gt || expr.id() == ID_equal || expr.id() == ID_ge)
   {
-    // int lhs_idx_count = contains_array(expr.op0());
-    // int rhs_idx_count = contains_array(expr.op1());
-    // if (lhs_idx_count && rhs_idx_count)
-    // {
-    // }
-    extra_grammar_bools += expr2sygus(expr) + "\n ";
+    if (!contains_local_var(expr))
+      extra_grammar_bools.insert(expr2sygus(expr) + "\n ");
     // std::cout << "extra bools: " << extra_grammar_bools << std::endl;
   }
   {
@@ -682,11 +663,8 @@ void sygus_interfacet::get_solution_grammar_string(const exprt &expr)
 
 void sygus_interfacet::add_prev_solution_to_grammar(const solutiont &prev_solution)
 {
-  std::cout << "adding prevoius solution to grammar \n";
-
   for (const auto &f : prev_solution.functions)
   {
-    std::cout << "adding prevoius solution to grammar \n";
     get_solution_grammar_string(f.second);
   }
 }

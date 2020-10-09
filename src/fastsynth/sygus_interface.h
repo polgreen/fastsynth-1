@@ -26,7 +26,7 @@ public:
     void print_problem(problemt &problem);
     decision_proceduret::resultt fudge();
     decision_proceduret::resultt doit(problemt &problem, bool use_ints, bool use_grammar, const int bound, const int timeout = 0);
-    std::string extra_grammar_bools;
+    std::set<std::string> extra_grammar_bools;
     std::string extra_grammar_ints;
     std::string declare_vars;
     std::string synth_fun;

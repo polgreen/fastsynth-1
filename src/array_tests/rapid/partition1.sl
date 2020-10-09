@@ -20,10 +20,10 @@
 
 (synth-fun inv-fn ((a (Array Int Int))(b (Array Int Int))(c (Array Int Int))
 	(i Int)(blength Int)(clength Int)) Bool
-((B Bool)(I Int))
-((B Bool ((forall ((index Int)) (=> (and (< index I) (>= index I)) (>= (select b index) 0)))))
-(I Int (0 blength i clength)))
-	)
+; ((B Bool)(I Int))
+; ((B Bool ((forall ((index Int)) (=> (and (< index I) (>= index I)) (>= (select b index) 0)))))
+; (I Int (0 blength i clength)))
+ 	)
 
 (define-fun trans-fn ((a (Array Int Int))(b (Array Int Int))(c (Array Int Int))
 	(i Int)(blength Int)(clength Int)

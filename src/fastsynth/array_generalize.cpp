@@ -187,7 +187,7 @@ bool array_syntht::find_array_indices(const exprt &expr,
 
   std::size_t distance = 0;
   // no nested indices
-  if (!found_idx)
+  // if (!found_idx)
   {
     for (const auto &op : expr.operands())
     {
@@ -211,6 +211,8 @@ bool array_syntht::add_quantifiers_back(exprt &expr)
   if (expr.id() == ID_and || expr.id() == ID_or)
   {
     debug() << "Can we add a quantifier instead of: " << expr2sygus(expr, true) << eom;
+    // sort_operands(expr);
+    debug() << "sorted operands " << expr2sygus(expr, true) << eom;
 
     auto &operands = expr.operands();
     assert(operands.size() != 0);
@@ -261,7 +263,11 @@ bool array_syntht::add_quantifiers_back(exprt &expr)
       debug() << eom;
     }
     if (all_sets_size_one || sets_of_matching_indices.size() == 0)
+    {
+      debug() << "No sets of matching indices \n"
+              << eom;
       return false;
+    }
 
     // Now check which of the normalised array indices are the same for
     // each set. For each set, we first check which of the array indices in array_indexes
@@ -270,8 +276,10 @@ bool array_syntht::add_quantifiers_back(exprt &expr)
     exprt result;
     for (unsigned int i = 0; i < sets_of_matching_indices.size(); i++)
     {
+
       exprt result_expr;
       auto &this_matching_set = sets_of_matching_indices[i];
+      debug() << "Set " << i << " size " << this_matching_set.size() << eom;
       if (this_matching_set.size() == 1)
       {
         result_expr = operands[this_matching_set[0]];
@@ -282,6 +290,7 @@ bool array_syntht::add_quantifiers_back(exprt &expr)
       {
         // TODO FIX THIS
         const auto &comparison_locs = array_index_locations[this_matching_set[0]];
+        debug() << "comparison locs " << comparison_locs.array_indexes.size() << eom;
 
         std::vector<int> which_arrays_match;
         std::vector<std::vector<bool>> which_index_do_constants_match;
@@ -289,6 +298,7 @@ bool array_syntht::add_quantifiers_back(exprt &expr)
         // for each locs, check that all indices in this_matching_set match
         for (unsigned int j = 0; j < comparison_locs.array_indexes.size(); j++)
         {
+
           std::vector<bool> compare_constants_for_this_index(comparison_locs.constant_locations.size(), true);
           //     bool found_some_matching_constants = false;
           const auto &comparison_array_index = comparison_locs.array_indexes[j];
@@ -352,12 +362,18 @@ bool array_syntht::add_quantifiers_back(exprt &expr)
               where, 0, first_expr_locs.array_indexes[which_arrays_match[i]],
               true, const_index, binding, which_index_do_constants_match[i]);
         }
-
-        quantifier_exprt new_expr =
-            (expr.id() == ID_and) ? quantifier_exprt(
-                                        ID_forall, binding, where)
-                                  : quantifier_exprt(ID_exists, binding, where);
-        result_expr = new_expr;
+        if (which_arrays_match.size() > 0)
+        {
+          quantifier_exprt new_expr =
+              (expr.id() == ID_and) ? quantifier_exprt(
+                                          ID_forall, binding, where)
+                                    : quantifier_exprt(ID_exists, binding, where);
+          result_expr = new_expr;
+        }
+        else
+        {
+          result_expr = expr;
+        }
       }
       if (i > 0)
       {
@@ -384,9 +400,12 @@ bool array_syntht::compare_expr(const exprt &expr1, const exprt &expr2)
 {
   debug() << "Comparing expr " << expr2sygus(expr1) << " and " << expr2sygus(expr2) << eom;
   const auto &operands1 = expr1.operands();
-  const auto &operands2 = expr1.operands();
+  const auto &operands2 = expr2.operands();
   if (expr1 == expr2)
+  {
+    debug() << "Definitely matching \n";
     return true;
+  }
   if (expr1.id() != expr2.id())
     return false;
   if (operands1.size() != operands2.size())

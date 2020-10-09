@@ -121,7 +121,6 @@ int sygus_frontend(const cmdlinet &cmdline)
   /// ARRAY SYNTHESIS
   if (cmdline.isset("arrays"))
   {
-    message.status() << "DOING ARRAY SYNTHESHS\n";
     array_syntht array_synth(cegis.get_message_handler());
     switch (array_synth.array_synth_loop(parser, problem))
     {
@@ -130,12 +129,14 @@ int sygus_frontend(const cmdlinet &cmdline)
       {
         std::string stripped_id = id2string(f.first.get_identifier());
         //   std::string(id2string(f.first.get_identifier()), 11, std::string::npos);
+        message.result() << messaget::green;
 
         message.result() << "Result: "
                          << stripped_id
                          << " -> "
                          << from_expr(ns, "", f.second)
                          << '\n';
+        message.result() << messaget::reset << messaget::eom;
 
         smt2_convt smt(ns, "", "", "", smt2_convt::solvert::Z3, message.result());
         message.result() << "SMT: "
@@ -147,13 +148,14 @@ int sygus_frontend(const cmdlinet &cmdline)
       }
 
       message.result() << messaget::eom;
+      message.statistics() << messaget::magenta;
 
       message.statistics() << "Synthesis time: "
                            << std::chrono::duration<double>(
                                   std::chrono::steady_clock::now() - start_time)
                                   .count()
                            << 's'
-                           << messaget::eom;
+                           << messaget::reset << messaget::eom;
       break;
 
     case decision_proceduret::resultt::D_UNSATISFIABLE:
@@ -196,6 +198,9 @@ int sygus_frontend(const cmdlinet &cmdline)
                                   .count()
                            << 's'
                            << messaget::eom;
+      message.statistics() << messaget::reset;
+      message.statistics() << messaget::eom;
+
       break;
 
     case decision_proceduret::resultt::D_UNSATISFIABLE:

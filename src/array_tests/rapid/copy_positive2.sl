@@ -22,8 +22,9 @@
 
 (define-fun post-fn ((a (Array Int Int))(b (Array Int Int))(alength Int)
 	(blength Int)(i Int)) Bool
+(and (>= i 0)
 (forall ((index Int)) (exists ((index2 Int))
-(=> (and (<= 0 index)(<= 0 i)(< index alength))(= (select a index)(select b index2))))))
+(=> (and (<= 0 index)(<= 0 i)(< index alength))(= (select a index)(select b index2)))))))
 
 
 (synth-fun inv-fn((a (Array Int Int))(b (Array Int Int))(alength Int)
@@ -35,3 +36,4 @@
 
 (constraint (=> (inv-fn a b alength blength i)(post-fn a b alength blength i)))
 (check-synth)
+

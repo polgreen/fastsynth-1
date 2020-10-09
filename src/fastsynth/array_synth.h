@@ -86,6 +86,8 @@ private:
     void bound_arrays(problemt &problem, std::size_t bound);
     void bound_arrays(problemt &problem);
 
+    std::vector<exprt> grammar_seeds;
+
     std::list<partial_solutiont> solutions_so_far;
     solutiont build_solution(const solutiont &solution);
 

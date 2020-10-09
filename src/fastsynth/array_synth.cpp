@@ -104,7 +104,7 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
     sygus_interface.clear();
     problem = local_problem;
     bound_arrays(problem, array_size);
-    status() << "Array size bounded to width " << array_size << eom;
+    debug() << "Array size bounded to width " << array_size << eom;
     decision_proceduret::resultt result;
 
     // alternates betrween "with grammar" and "without grammar". The timeout for "without grammar" is shorter
@@ -157,8 +157,8 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
           array_size++;
         }
 
-        status() << "Trying full scale synthesis with soln."
-                 << eom;
+        debug() << "Trying full scale synthesis with soln."
+                << eom;
         solution = sygus_interface.solution;
         sygus_interface.clear();
         sygus_interface.add_prev_solution_to_grammar(solution);
@@ -166,7 +166,8 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
             local_problem, use_integers, true, array_size, 120);
         if (result == decision_proceduret::resultt::D_SATISFIABLE)
         {
-          status() << "UNSAT, got solution with array size " << array_size << "\n"
+          status() << "Got solution from synthesis-based generalisation with array size "
+                   << array_size << "\n"
                    << eom;
           solution = sygus_interface.solution;
           return decision_proceduret::resultt::D_SATISFIABLE;
@@ -176,7 +177,8 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
       }
       break;
       case decision_proceduret::resultt::D_UNSATISFIABLE:
-        status() << "UNSAT, got solution with array size " << array_size << " \n " << eom;
+        status() << "Got solution from semantic generalisation with array size "
+                 << array_size << " \n " << eom;
         solution = sygus_interface.solution;
         return decision_proceduret::resultt::D_SATISFIABLE;
       case decision_proceduret::resultt::D_ERROR:
