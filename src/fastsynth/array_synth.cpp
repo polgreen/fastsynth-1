@@ -86,6 +86,9 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
 {
   initialise_variable_set(problem);
   expand_let_expressions(problem);
+  int no_grammar_timeout = 2;
+  int grammar_timeout = 60;
+  bool synthesis_phase_completed = false;
 
   std::size_t array_size = 1;
   symbol_tablet symbol_table;
@@ -109,7 +112,7 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
 
     // alternates betrween "with grammar" and "without grammar". The timeout for "without grammar" is shorter
     result = sygus_interface.doit(
-        problem, use_integers, use_grammar, array_size, use_grammar ? 120 : 2);
+        problem, use_integers, use_grammar, array_size, use_grammar ? grammar_timeout : no_grammar_timeout);
 
     switch (result)
     {
@@ -119,7 +122,13 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
       else
       {
         use_grammar = false;
-        array_size++;
+        if (synthesis_phase_completed)
+          array_size++;
+        else
+        {
+          no_grammar_timeout = 60;
+          grammar_timeout = 120;
+        }
       }
       break;
     case decision_proceduret::resultt::D_UNSATISFIABLE:
@@ -135,6 +144,7 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
     case decision_proceduret::resultt::D_SATISFIABLE:
       debug() << "Verifying solution from CVC4\n"
               << eom;
+      synthesis_phase_completed = true;
       // unbound the solution and put quantifiers back
       solution_has_quants = unbound_arrays_in_solution(sygus_interface.solution);
       // add solution to the rest of the solution we have obtained so far
@@ -154,7 +164,8 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
         {
           use_grammar = false;
           // process_counterexample(problem, cex);
-          array_size++;
+          if (synthesis_phase_completed)
+            array_size++;
         }
 
         debug() << "Trying full scale synthesis with soln."

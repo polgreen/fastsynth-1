@@ -34,7 +34,7 @@
 
 (define-fun post-fn ((b (Array Int Int)) (blength Int)) Bool
 (forall ((index Int)) (=> (and (< index blength) (>= index 0)) 
-	(exists ((index2 Int)) (= (select index b) (select index2 a))))))
+	(exists ((index2 Int)) (= (select b index) (select a index2))))))
 
 
 

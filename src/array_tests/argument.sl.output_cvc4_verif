@@ -1,0 +1,17 @@
+Array size bounded to width 2
+Solving query:
+(set-logic ALL)
+(declare-var a (Array Int Int))
+(declare-var b (Array Int Int))
+(declare-var a! (Array Int Int))
+(declare-var b! (Array Int Int))
+(declare-var a!! (Array Int Int))
+(declare-var b!! (Array Int Int))
+(synth-fun inv-fn((parameter0 (Array Int Int))(parameter1 (Array Int Int)))Bool) 
+(constraint (=> (= a b)(inv-fn a b )))
+(constraint (=> (and (inv-fn a b ) (and (= a! (store (store a 1 (select a 0)) 0 (select a 1))) (= b! b) (and (and (= (select a!! 0) (+ (select a!! 0) 1 )) (= (select b! 0) (+ (select b!! 0) 1 )) ) (and (= (select a!! 1) (+ (select a!! 1) 1 )) (= (select b! 1) (+ (select b!! 1) 1 )) ) ) ) )(inv-fn a!! b!! )))
+(constraint (=> (inv-fn a b )(and (or (= (select a 0) (select b 0)) (= (select a 0) (select b 1)) ) (or (= (select a 1) (select b 0)) (= (select a 1) (select b 1)) ) )))
+(check-synth)
+
+Candidate: synth_fun::inv-fn -> forall { integer local_var2; exists { integer local_var0; parameter0[local_var2] == parameter1[local_var0] } }
+ERROR 
