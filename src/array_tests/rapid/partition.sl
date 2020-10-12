@@ -13,7 +13,7 @@
 (declare-var clength! Int)
 
 (define-fun init-fn ((i Int) (blength Int)(clength Int))Bool
-	(and (= i 0) (= blength 0) (= clength 0)))
+	(and (= i 0) (= blength 0) ))
 
 (synth-fun inv-fn ((a (Array Int Int))(b (Array Int Int))(c (Array Int Int))
 	(i Int)(blength Int)(clength Int)) Bool)

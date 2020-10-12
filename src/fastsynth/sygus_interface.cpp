@@ -5,7 +5,6 @@
 #include <util/run.h>
 #include <fstream>
 #include <util/arith_tools.h>
-#define DEBUG
 
 // TODO: add operators for non-bitvectors
 std::string type2sygus(const typet &type)
@@ -483,8 +482,7 @@ void sygus_interfacet::print_problem(problemt &problem)
   output_helper_functions = false;
   build_query(problem, 2);
   std::string query = logic + declare_vars + synth_fun + constraints + "(check-synth)\n";
-  std::cout
-      << query << std::endl;
+  std::cout << query << std::endl;
 }
 
 decision_proceduret::resultt sygus_interfacet::fudge()
@@ -568,8 +566,8 @@ decision_proceduret::resultt sygus_interfacet::read_result(std::istream &in)
   std::getline(in, firstline);
   if (firstline == "unknown")
   {
-    std::cout << "SyGuS solver says unknown \n"
-              << std::endl;
+    // std::cout << "SyGuS solver says unknown \n"
+    //           << std::endl;
     return decision_proceduret::resultt::D_UNSATISFIABLE;
   }
 
@@ -586,7 +584,7 @@ decision_proceduret::resultt sygus_interfacet::read_result(std::istream &in)
   }
   if (result_parser.id_map.size() == 0)
   {
-    std::cout << "Inner synthesis phase failed or timed-out. ";
+    // std::cout << "Inner synthesis phase failed or timed-out. ";
     return decision_proceduret::resultt::D_ERROR;
   }
 

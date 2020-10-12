@@ -137,7 +137,7 @@ counterexamplet verify_encodingt::get_counterexample(
     const decision_proceduret &solver) const
 {
   counterexamplet result;
-  std::cout << "Getting counterexample \n";
+  // std::cout << "Getting counterexample \n";
 
   // iterate over nondeterministic symbols, and get their value
   for (const auto &var : free_variables)
@@ -156,10 +156,10 @@ counterexamplet verify_encodingt::get_counterexample(
     }
     if (value == nil_exprt())
     {
-      std::cout << "Warning: unable to find value for " << var.pretty() << std::endl;
+      // std::cout << "Warning: unable to find value for " << var.pretty() << std::endl;
       result.assignment[var] = constant_exprt("0", var.type());
-      std::cout << "Assume has been simplified out by solver.\n"
-                << std::endl;
+      // std::cout << "Assume has been simplified out by solver.\n"
+      // << std::endl;
     }
   }
 

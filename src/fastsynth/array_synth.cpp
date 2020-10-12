@@ -4,7 +4,7 @@
 #include <util/arith_tools.h>
 #include <util/symbol_table.h>
 #include <util/string2int.h>
-#define MAX_ARRAY_SIZE 5
+#define MAX_ARRAY_SIZE 10
 #include <iostream>
 #include <cmath>
 #include "bitvector2integer.h"
@@ -117,6 +117,7 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
     switch (result)
     {
     case decision_proceduret::resultt::D_ERROR:
+      debug() << "Synthesis phase timed out or failed to find solution" << eom;
       if (!use_grammar)
         use_grammar = true;
       else
@@ -154,8 +155,8 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
       {
       case decision_proceduret::resultt::D_SATISFIABLE:
       {
-        status() << "verifying candidate failed, got counterexample."
-                 << eom;
+        debug() << "verifying candidate failed, got counterexample."
+                << eom;
         counterexamplet cex = verify.get_counterexample();
         // update set of indices for synthesis, based on counterexample
         if (!use_grammar)
@@ -168,7 +169,7 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
             array_size++;
         }
 
-        debug() << "Trying full scale synthesis with soln."
+        debug() << "Trying synthesis based generalisation"
                 << eom;
         solution = sygus_interface.solution;
         sygus_interface.clear();
@@ -183,12 +184,13 @@ decision_proceduret::resultt array_syntht::array_synth_loop(sygus_parsert &parse
           solution = sygus_interface.solution;
           return decision_proceduret::resultt::D_SATISFIABLE;
         }
+        debug() << "Synthesis generalistation timed out or failed to find solution" << eom;
 
         sygus_interface.solution.functions.clear();
       }
       break;
       case decision_proceduret::resultt::D_UNSATISFIABLE:
-        status() << "Got solution from semantic generalisation with array size "
+        status() << "Got solution from syntactic generalisation with array size "
                  << array_size << " \n " << eom;
         solution = sygus_interface.solution;
         return decision_proceduret::resultt::D_SATISFIABLE;
